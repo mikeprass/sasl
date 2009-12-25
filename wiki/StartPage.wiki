@@ -8,4 +8,4 @@ Welcome to SASL wiki.  It will hold SASL documentation in future.
 
 = Documentation =
 
-TextureAndTextureLit
+[TextureAndTextureLit Texture and TextureLit components internals]
