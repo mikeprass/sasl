@@ -915,8 +915,8 @@ PLUGIN_API int XPluginEnable(void)
         XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Gauges\n");
     if (! XPLMRegisterDrawCallback(drawPopups, xplm_Phase_Window, 0, NULL))
         XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Window\n");
-    if (! XPLMRegisterDrawCallback(drawScene, xplm_Phase_LastScene, 0, NULL))
-        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_LastScene\n");
+    if (! XPLMRegisterDrawCallback(drawScene, xplm_Phase_Objects, 0, NULL))
+        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Objects\n");
     fakeWindow = createFakeWindow();
     
     reloadCommand = XPLMCreateCommand("sasl/reload", "Reload SASL avionics");
