@@ -22,7 +22,7 @@ Texture::~Texture()
 
 
 
-TexturePart::TexturePart(Texture *tex, double x1, double y1, 
+TexturePart::TexturePart(Texture *tex, double x1, double y1,
         double x2, double y2)
 {
     texture = tex;
@@ -52,11 +52,11 @@ Texture* TextureManager::loadImage(const std::string &fileName)
         return (*i).second;
     } else {
         int width, height;
-        int id = graphics->load_texture(graphics, fileName.c_str(), 
+        int id = graphics->load_texture(graphics, fileName.c_str(),
                 &width, &height);
         if (-1 == id)
             return NULL;
-        
+
         Texture *tex = new Texture(id, width, height, this);
         cache[fileName] = tex;
         return tex;
@@ -64,7 +64,7 @@ Texture* TextureManager::loadImage(const std::string &fileName)
 }
 
 
-std::string TextureManager::getPartName(const std::string& fileName, 
+std::string TextureManager::getPartName(const std::string& fileName,
         double x, double y, double width, double height)
 {
     return fileName + ":" + toString(x) + ";" + toString(y) + ";" +
@@ -77,8 +77,8 @@ void TextureManager::getPartCoords(Texture *texture, double &x1, double &y1,
     x1 = y1 = 0.0;
     x2 = y2 = 1.0;
 }
-        
-void TextureManager::getPartCoords(Texture *texture, 
+
+void TextureManager::getPartCoords(Texture *texture,
         double width, double height,
         double &x1, double &y1, double &x2, double &y2)
 {
@@ -91,7 +91,7 @@ void TextureManager::getPartCoords(Texture *texture,
 }
 
 
-void TextureManager::getPartCoords(Texture *texture, 
+void TextureManager::getPartCoords(Texture *texture,
         double x, double y, double width, double height,
         double &x1, double &y1, double &x2, double &y2)
 {
@@ -103,7 +103,7 @@ void TextureManager::getPartCoords(Texture *texture,
     y2 = (y + height) / imageHeight;
 }
 
-TexturePart* TextureManager::getTexturePart(const std::string &fileName, 
+TexturePart* TextureManager::getTexturePart(const std::string &fileName,
         Texture *texture, double x1, double y1, double x2, double y2)
 {
     std::string partName = getPartName(fileName, x1, y1, x2, y2);
@@ -117,7 +117,7 @@ TexturePart* TextureManager::getTexturePart(const std::string &fileName,
     }
 }
 
-TexturePart* TextureManager::load(const std::string &fileName, 
+TexturePart* TextureManager::load(const std::string &fileName,
         double x, double y, double width, double height)
 {
     Texture *tex = loadImage(fileName);
@@ -130,7 +130,7 @@ TexturePart* TextureManager::load(const std::string &fileName,
     }
 }
 
-TexturePart* TextureManager::load(const std::string &fileName, 
+TexturePart* TextureManager::load(const std::string &fileName,
         double width, double height)
 {
     Texture *tex = loadImage(fileName);
@@ -155,6 +155,11 @@ TexturePart* TextureManager::load(const std::string &fileName)
     }
 }
 
+void TextureManager::unload(TexturePart *texturePart)
+{
+    // Dummy function, doesn't make sense without new texture manager
+}
+
 
 void TextureManager::unloadAll()
 {
@@ -175,13 +180,13 @@ void TextureManager::setGraphicsCallbacks(struct SaslGraphicsCallbacks *callback
 static int luaGetImageSize(lua_State *L)
 {
     std::string fileName = lua_tostring(L, 1);
-    
+
     int w,h,ch;
     unsigned char* foo = SOIL_load_image(fileName.c_str(), &w, &h, &ch, SOIL_LOAD_AUTO);
     if (foo)
     {
         SOIL_free_image_data(foo);
-    } 
+    }
     else
     {
         w = 0;
@@ -202,16 +207,16 @@ static int luaLoadImage(lua_State *L)
     std::string fileName = lua_tostring(L, 1);
     TexturePart *texture = NULL;
 
-    if (lua_isnil(L, 2)) 
+    if (lua_isnil(L, 2))
         texture = textureManager->load(fileName);
     else if (lua_isnil(L, 4))
-        texture = textureManager->load(fileName, 
+        texture = textureManager->load(fileName,
                 lua_tonumber(L, 2), lua_tonumber(L, 3));
     else
-        texture = textureManager->load(fileName, 
+        texture = textureManager->load(fileName,
                 lua_tonumber(L, 2), lua_tonumber(L, 3),
                 lua_tonumber(L, 4), lua_tonumber(L, 5));
-    
+
     if (texture)
         lua_pushlightuserdata(L, texture);
     else
@@ -226,13 +231,30 @@ static int luaGetTextureSize(lua_State *L)
         return 0;
     TexturePart *tex = (TexturePart*)lua_touserdata(L, 1);
 
-    lua_pushnumber(L, (tex->getX2() - tex->getX1()) * 
+    lua_pushnumber(L, (tex->getX2() - tex->getX1()) *
             tex->getTexture()->getWidth());
-    lua_pushnumber(L, (tex->getY2() - tex->getY1()) * 
+    lua_pushnumber(L, (tex->getY2() - tex->getY1()) *
             tex->getTexture()->getHeight());
     return 2;
 }
 
+
+/// Lua wrapper for unloading textures
+static int luaUnloadImage(lua_State *L)
+{
+    if ((! lua_islightuserdata(L, 1) || lua_isnil(L, 1)))
+        return 0;
+    TexturePart *tex = (TexturePart*)lua_touserdata(L, 1);
+
+    TextureManager *textureManager = getAvionics(L)->getTextureManager();
+
+    if (! textureManager)
+        return 0;
+
+    textureManager->unload(tex);
+
+    return 0;
+}
 
 void xa::exportTextureToLua(Luna &lua)
 {
@@ -241,5 +263,6 @@ void xa::exportTextureToLua(Luna &lua)
     lua_register(L, "getGLTexture", luaLoadImage);
     lua_register(L, "getTextureSize", luaGetTextureSize);
     lua_register(L, "getImageSize", luaGetImageSize);
+    lua_register(L, "unloadImage", luaUnloadImage);
 }
 

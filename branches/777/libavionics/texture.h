@@ -26,7 +26,7 @@ class Texture
 
         /// Height of texture
         int height;
- 
+
         /// Reference to texture manager
         TextureManager *manager;
 
@@ -62,19 +62,19 @@ class TexturePart
 
     public:
         /// Create texture and texture coords
-        TexturePart(Texture *tex, double x1, double y1, 
+        TexturePart(Texture *tex, double x1, double y1,
                 double x2, double y2);
-        
+
     public:
         /// Returns X1 texture coord
         double getX1() const { return x1; }
-        
+
         /// Returns Y1 texture coord
         double getY1() const { return y1; }
-        
+
         /// Returns X2 texture coord
         double getX2() const { return x2; }
-        
+
         /// Returns Y2 texture coord
         double getY2() const { return y2; }
 
@@ -92,7 +92,7 @@ class TextureManager
 
         /// Textures cache
         TexturesMap cache;
-        
+
         /// Textures parts mapped by part name
         typedef std::map<std::string, TexturePart*> TexturesParts;
 
@@ -101,7 +101,7 @@ class TextureManager
 
         /// Graphics funtions
         SaslGraphicsCallbacks *graphics;
-        
+
     public:
         /// Create texture manager
         TextureManager();
@@ -112,13 +112,18 @@ class TextureManager
     public:
         /// Load entire texture
         TexturePart* load(const std::string &path);
-        
+
         /// Load center part of texture
         TexturePart* load(const std::string &path, double width, double height);
-        
+
         /// Load part of texture
         TexturePart* load(const std::string &path, double x, double y,
                 double width, double height);
+
+        /// Unload texture from memory
+        /// It is completele removes texture from memory
+        /// Use it on your own risk!
+        void unload(TexturePart *texturePart);
 
         /// Unload all textures
         void unloadAll();
@@ -136,22 +141,22 @@ class TextureManager
         /// Returns texture coords which covers entire image
         void getPartCoords(Texture *texture, double &x1, double &y1,
                 double &x2, double &y2);
-        
+
         /// Returns texture coords which covers rectangle in image center
         void getPartCoords(Texture *texture, double width, double height,
                 double &x1, double &y1, double &x2, double &y2);
-        
+
         /// Returns texture coords which covers rectangle in image
-        void getPartCoords(Texture *texture, 
+        void getPartCoords(Texture *texture,
                 double x, double y, double width, double height,
                 double &x1, double &y1, double &x2, double &y2);
 
         /// Returns name of texture part
-        std::string getPartName(const std::string& fileName, 
+        std::string getPartName(const std::string& fileName,
                 double x1, double y1, double x2, double y2);
 
         /// Returns texture and texture coords
-        TexturePart* getTexturePart(const std::string &fileName, 
+        TexturePart* getTexturePart(const std::string &fileName,
             Texture *texture, double x1, double y1, double x2, double y2);
 };
 
