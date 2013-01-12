@@ -57,6 +57,8 @@ struct OglCanvas
     float *colorBuffer;
 };
 
+// stores last clip area (x1,y1,width,height)
+GLint  lastClipArea[4];
 
 
 /// initialize graphics before frame start
@@ -308,10 +310,17 @@ static void drawTexturedTriangle(struct SaslGraphicsCallbacks *canvas,
 
 // enable clipping to rectangle
 static void setClipArea(struct SaslGraphicsCallbacks *canvas, 
-        double x1, double y1, double x2, double y2)
+        double x, double y, double width, double height)
 {
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
+
+    // store viewport
+    glGetIntegerv(GL_VIEWPORT, lastClipArea);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x ,y , width, height);
+
     dumpBuffers(c);
 }
 
@@ -319,9 +328,12 @@ static void setClipArea(struct SaslGraphicsCallbacks *canvas,
 // disable clipping.
 static void resetClipArea(struct SaslGraphicsCallbacks *canvas)
 {
-    OglCanvas *c = (OglCanvas*)canvas;
+    //OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
-    dumpBuffers(c);
+
+    glDisable(GL_SCISSOR_TEST);
+
+    glScissor(lastClipArea[0],lastClipArea[1],lastClipArea[2],lastClipArea[3]);
 }
 
 

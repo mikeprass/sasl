@@ -216,6 +216,7 @@ function createComponent(name, parent)
         componentsByName = { },
         size = { 100, 100 },
         position = createProperty { 0, 0, 100, 100 },
+        clip = createProperty(false),
         draw = function (comp) drawAll(comp.components); end,
         update = function (comp) updateAll(comp.components); end,
         name = name,
@@ -457,7 +458,20 @@ function drawComponent(v)
         saveGraphicsContext()
         local pos = get(v.position)
         setTranslation(pos[1], pos[2], pos[3], pos[4], v.size[1], v.size[2])
+		local clip = get(v.clip)
+
+		if toboolean(clip) then
+			setClipArea(clip[1], clip[2], clip[3], clip[4])
+		else
+			resetClipArea()
+		end
+
         v:draw()
+
+		if toboolean(clip) then
+			resetClipArea()
+		end
+
         restoreGraphicsContext()
     end
 end
@@ -1085,6 +1099,7 @@ function subpanel(tbl)
     end
     local c = createComponent(name, popups)
     set(c.position, tbl.position)
+	set(c.clip, tbl.clip)
     c.size = { tbl.position[3], tbl.position[4] }
     c.onMouseClick = function (comp, x, y, button, parentX, parentY)
         defaultOnMouseClick(comp, x, y, button, parentX, parentY)
