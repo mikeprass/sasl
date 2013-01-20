@@ -7,7 +7,13 @@ OBJECTS=$(SOURCES:.cpp=.o)
 
 CXXFLAGS+=`sdl-config --cflags` -I../libavionics  -I../libaccgl $(LUAJIT_CXXFLAGS)
 LNFLAGS+=-L../libavionics -L../libaccgl $(LUAJIT_LNFLAGS)
-LIBS+=-lm `sdl-config --libs` -lavionics -laccgl -lSOIL32 -lGL $(LUAJIT_LIBS)
+LIBS+=-lm `sdl-config --libs` -lavionics -laccgl -lGL $(LUAJIT_LIBS)
+
+ifneq ($(BUILD_64),yes)
+LIBS+=-lSOIL32
+else
+LIBS+=-lSOIL
+endif
 
 all: $(TARGET)
 
