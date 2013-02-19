@@ -9,7 +9,7 @@ OBJECTS=$(SOURCES:.cpp=.o)
 OSXC=-arch x86_64 -mmacosx-version-min=10.7 
 OSXL=-arch x86_64 -mmacosx-version-min=10.7
 
-DEFS= -DAPL=1 -DLIN=0 -DIBM=0 -fPIC -fno-stack-protector -DXPLM200 -fvisibility=hidden -ffast-math -fno-rtti -fno-exceptions -DNDEBUG -DUSE_EXTERNAL_ALLOCATOR=1
+DEFS= -DAPL=1 -DLIN=0 -DIBM=0 -fPIC -fno-stack-protector -DXPLM200 -fvisibility=hidden -ffast-math -fno-rtti -fno-exceptions -DNDEBUG
 DEFS_DEBUG= -DAPL=1 -DLIN=0 -DIBM=0 -fPIC -fno-stack-protector -DXPLM200 -fvisibility=hidden -g -DUSE_EXTERNAL_ALLOCATOR=1
 
 # By default Lua installs itself into /usr/local so we will look for it there too
