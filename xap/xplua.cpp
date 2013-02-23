@@ -12,10 +12,12 @@ extern "C" {
 
 #include "xpsdk.h"
 #include "xpobjects.h"
+#include "xpdraw3d.h"
 
 #include "custom_alloc.h"
 
 using namespace xap;
+using namespace xap3d;
 
 
 static void *ud = NULL;  // TODO: need better name
@@ -492,6 +494,9 @@ void xap::exportLuaFunctions(lua_State *L)
 
     // objects api
     exportObjectsFunctions(L);
+
+    // draw3d api
+    exportDraw3dFunctions(L);
 
     // terrain API
     lua_register(L, "probeTerrain", probeTerrain);

@@ -33,6 +33,7 @@ extern "C" {
 #include "alsound.h"
 #include "listener.h"
 #include "xpobjects.h"
+#include "xpdraw3d.h"
 
 
 
@@ -40,6 +41,7 @@ extern "C" {
 #include "../version.h"
 
 using namespace xap;
+using namespace xap3d;
 
 // plugin is enabled or disabled
 static bool disabled = false;
@@ -414,13 +416,28 @@ static int drawPopups(XPLMDrawingPhase phase, int isBefore, void *refcon)
 static int drawScene(XPLMDrawingPhase phase, int isBefore, void *refcon)
 {
     drawObjects();
+    draw3d(phase);
+    return 1;
+}
+
+// draw last things in 3d
+static int drawLastScene(XPLMDrawingPhase phase, int isBefore, void *refcon)
+{
+    draw3d(phase);
+    return 1;
+}
+
+// draw last 2d
+static int drawLastCockpit(XPLMDrawingPhase phase, int isBefore, void *refcon)
+{
     return 1;
 }
 
 // reset draw phase
 static int drawLast2d(XPLMDrawingPhase phase, int isBefore, void *refcon)
 {
-    frameFinished();
+    xap::frameFinished();
+    xap3d::frameFinished();
     return 1;
 }
 
@@ -889,6 +906,8 @@ PLUGIN_API int XPluginStart(char *outName, char *outSig, char *outDesc)
     viewHeading = XPLMFindDataRef("sim/graphics/view/cockpit_heading");
     viewType = XPLMFindDataRef("sim/graphics/view/view_type");
 
+    xap3d::initDraw3d();
+
     graphics = saslgl_init_graphics();
     saslgl_set_texture2d_binder_callback(graphics, bindTexture2dCallback);
     saslgl_set_gen_tex_name_callback(graphics, genTexNameCallback);
@@ -932,6 +951,11 @@ PLUGIN_API int XPluginEnable(void)
         XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Objects\n");
     if (! XPLMRegisterDrawCallback(drawLast2d, xplm_Phase_Window, 0, NULL))
         XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Window (last 2d)t\n");
+    if (! XPLMRegisterDrawCallback(drawLastScene, xplm_Phase_LastScene, 0, NULL))
+        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_LastScene (last scene)t\n");
+    if (! XPLMRegisterDrawCallback(drawLastCockpit, xplm_Phase_LastCockpit, 0, NULL))
+        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_LastCockpit (last cockpit)t\n");
+
     fakeWindow = 0;
     
     reloadCommand = XPLMCreateCommand("sasl/reload", "Reload SASL avionics");
