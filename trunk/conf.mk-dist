@@ -18,7 +18,7 @@ DEBUG_CXXFLAGS=-ggdb
 DEBUG_LNFLAGS=-ggdb
 
 # release options
-RELEASE_CXXFLAGS=-O3 -ffast-math -march=i686 -msse
+RELEASE_CXXFLAGS=-O3 -ffast-math -march=i686 -msse -DNDEBUG=1
 RELEASE_LNFLAGS=
 
 # extra CXXFLAGS
