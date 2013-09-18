@@ -19,6 +19,9 @@ void initDraw3d();
 
 void frameFinished();
 
+static int hdr_pass;
+static XPLMDataRef hdr_pass_dr;
+
 };
 
 #endif

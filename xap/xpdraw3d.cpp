@@ -65,6 +65,7 @@ void xap3d::initDraw3d()
     viewPitch = XPLMFindDataRef("sim/graphics/view/view_pitch");
     viewRoll = XPLMFindDataRef("sim/graphics/view/view_roll");
     viewHeading = XPLMFindDataRef("sim/graphics/view/view_heading");
+    hdr_pass_dr = XPLMFindDataRef("sim/graphics/view/plane_render_type");   //! This dataref will exist from X-Plane 10.30 onwards so you don't need the hack anymore
 
     /*
     pilotX = XPLMFindDataRef("sim/graphics/view/pilots_head_x");
@@ -524,7 +525,7 @@ void drawBillboards()
 
 void xap3d::draw3d(XPLMDrawingPhase phase)
 {
-    if (phase == xplm_Phase_LastScene) {
+    if (phase == xplm_Phase_Airplanes && hdr_pass == 1) {
         //lastViewType = XPLMGetDatai(viewType);
 
         lastViewPitch = XPLMGetDataf(viewPitch);
@@ -540,11 +541,13 @@ void xap3d::draw3d(XPLMDrawingPhase phase)
 
         drawBillboards();
     }
+    hdr_pass++;
 }
 
 void xap3d::frameFinished()
 {
     billboardsToDraw.clear();
+    hdr_pass = 0;
 }
 
 void xap3d::exportDraw3dFunctions(lua_State *L)
