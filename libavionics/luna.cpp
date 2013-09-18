@@ -1,5 +1,7 @@
 #include "luna.h"
 
+#include <vector>
+#include <string.h>
 #include <sys/types.h>
 #ifndef WINDOWS
 #include <dirent.h>
@@ -127,6 +129,99 @@ static int luaListFiles(lua_State *L)
 #endif
 
 
+
+static std::vector<double> loadLuaTable(lua_State *L)
+{
+    std::vector<double> values;
+
+    /* table is in the stack at index -1 */
+    lua_pushnil(L);  /* first key, table at -2 */
+    while (lua_next(L, -2) != 0) {
+        /* uses 'key' (at index -2) and 'value' (at index -1) */
+        int index = lua_tonumber(L, -2);
+        double value = lua_tonumber(L, -1);
+        if (0 < index) {
+            index = index - 1; // lua arrays are 1-based
+            if (values.size() <= (unsigned)index)
+                values.resize(index + 1, 0);
+            values[index] = value;
+        }
+        /* removes 'value'; keeps 'key' for next iteration */
+        lua_pop(L, 1);
+    }
+
+    return values;
+}
+
+
+static double tarate(double *r1, double *r2, int size, double x)
+{
+    int last = size - 1;
+
+    if (x >= r1[last]) 
+      return r2[last];
+    else if (x <= r1[0])
+      return r2[0];
+   
+    int k = 0;
+    while ((x >= r1[k]) && (k < size))
+        k++;
+
+    double a = (r2[k-1] - r2[k]) / (r1[k-1] - r1[k]);
+    double b = r2[k] - a*r1[k];              
+   
+    return a * x + b;
+}
+
+
+static int loadTable(lua_State *L)
+{
+    lua_pushnumber(L, 1); lua_gettable(L, 1);  // push first table
+    std::vector<double> v1 = loadLuaTable(L);
+    lua_pop(L, 1); // pop table
+    
+    lua_pushnumber(L, 2); lua_gettable(L, 1);  // push second table
+    std::vector<double> v2 = loadLuaTable(L);
+    lua_pop(L, 1); // pop table
+
+    if ((v1.size() != v2.size()) || (! v1.size())) {
+        lua_pushnil(L);
+        return 0;
+    }
+
+    int size = v1.size();
+    int vsize = size * sizeof(double);
+    char *buf = (char*)lua_newuserdata(L, vsize * 2 + sizeof(int));
+    memcpy(buf, &size, sizeof(int));
+
+    double *v = &v1[0];
+    memcpy(buf + sizeof(int), v, vsize);
+    v = &v2[0];
+    memcpy(buf + sizeof(int) + vsize, v, vsize);
+
+    return 1;
+}
+
+static int luaTarate(lua_State *L)
+{
+    if ((! lua_isuserdata(L, 1)) || (! lua_isnumber(L, 2))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    char* v = (char*)lua_touserdata(L, 1);
+    int size = *((int*)v);
+    double *v1 = (double*)(v + sizeof(int));
+    double *v2 = (double*)(v + sizeof(int) + size * sizeof(double));
+
+    lua_pushnumber(L, tarate(v1, v2, size, lua_tonumber(L, 2)));
+    return 1;
+}
+
+
+
+
+
 Luna::Luna(sasl_lua_creator_callback luaCreator,
                 sasl_lua_destroyer_callback luaDestroyer)
 {
@@ -144,6 +239,8 @@ Luna::Luna(sasl_lua_creator_callback luaCreator,
         lua_register(lua, "bitor", luaBitOr);
         lua_register(lua, "bitxor", luaBitXor);
         lua_register(lua, "listFiles", luaListFiles);
+        lua_register(lua, "newRamzInterpolator", loadTable);
+        lua_register(lua, "ramzTarate", luaTarate);
 
         lua_newtable(lua);
         lua_setfield(lua, LUA_REGISTRYINDEX, "xavionics");
