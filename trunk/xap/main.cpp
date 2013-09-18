@@ -420,18 +420,13 @@ static int drawScene(XPLMDrawingPhase phase, int isBefore, void *refcon)
     return 1;
 }
 
-// draw last things in 3d
-static int drawLastScene(XPLMDrawingPhase phase, int isBefore, void *refcon)
+// draw airplanes
+static int drawAirplanes(XPLMDrawingPhase phase, int isBefore, void *refcon)
 {
     draw3d(phase);
     return 1;
 }
 
-// draw last 2d
-static int drawLastCockpit(XPLMDrawingPhase phase, int isBefore, void *refcon)
-{
-    return 1;
-}
 
 // reset draw phase
 static int drawLast2d(XPLMDrawingPhase phase, int isBefore, void *refcon)
@@ -950,12 +945,9 @@ PLUGIN_API int XPluginEnable(void)
     if (! XPLMRegisterDrawCallback(drawScene, xplm_Phase_Objects, 0, NULL))
         XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Objects\n");
     if (! XPLMRegisterDrawCallback(drawLast2d, xplm_Phase_Window, 0, NULL))
-        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Window (last 2d)t\n");
-    if (! XPLMRegisterDrawCallback(drawLastScene, xplm_Phase_LastScene, 0, NULL))
-        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_LastScene (last scene)t\n");
-    if (! XPLMRegisterDrawCallback(drawLastCockpit, xplm_Phase_LastCockpit, 0, NULL))
-        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_LastCockpit (last cockpit)t\n");
-
+        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Window (last 2d)\n");
+    if (! XPLMRegisterDrawCallback(drawAirplanes, xplm_Phase_Airplanes, 0, NULL))
+        XPLMDebugString("SASL: Error registering draw callback at xplm_Phase_Airplanes\n");
     fakeWindow = 0;
     
     reloadCommand = XPLMCreateCommand("sasl/reload", "Reload SASL avionics");
