@@ -77,6 +77,8 @@ slava::CmdLine::CmdLine(int argc, char *argv[]):
             dataDir = std::string(argv[++i]);
         else if ((! strcmp(argv[i], "--fps")) && (i < argc - 1))
             targetFps = strToInt(argv[++i]);
+        else if ((! strcmp(argv[i], "--path")) && (i < argc - 1))
+            paths.push_back(std::string(argv[++i]));
         else if (! strcmp(argv[i], "--version"))
             printVersion();
         else if (! strcmp(argv[i], "--help"))

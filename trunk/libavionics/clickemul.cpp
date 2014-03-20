@@ -10,6 +10,7 @@ ClickEmulator::ClickEmulator(RtTimer &timer): timer(timer)
     clickDelay = 150;
     clickPeriod = 50;
     button = 0;
+    layer = 0;
 }
 
 

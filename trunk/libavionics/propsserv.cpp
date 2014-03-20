@@ -23,7 +23,7 @@ ClientProp::ClientProp(int id, int type, const std::string &name,
 
 ClientProp::~ClientProp()
 {
-    if (lastValue.buf)
+    if ((PROP_STRING == type) && lastValue.buf)
         free(lastValue.buf);
 }
 
@@ -138,7 +138,7 @@ int PropsServer::update()
     int err = 0;
 
     if (server.update()) {
-        log.error("tcp server error\n");
+        log.error("tcp server error");
         err = -1;
     }
 
@@ -146,7 +146,7 @@ int PropsServer::update()
             i != clients.end(); )
     {
         if ((*i).update()) {
-            log.debug("closing client connection\n");
+            log.debug("closing client connection");
             i = clients.erase(i);
         } else
             i++;
@@ -190,9 +190,9 @@ PropsClient::~PropsClient()
 
 void PropsClient::start(int sock)
 {
-    log.debug("starting connection\n");
+    log.debug("starting connection");
     if (con.setSocket(sock)) {
-        log.error("error witching client to non-blockng mode\n");
+        log.error("error witching client to non-blockng mode");
         stop();
         return;
     }
@@ -205,12 +205,12 @@ void PropsClient::start(int sock)
 int PropsClient::update()
 {
     if (CLOSED == state) {
-        log.debug("client closed\n");
+        log.debug("client closed");
         return -1;
     }
     int res = con.update();
     if (res) {
-        log.error("error updaing client connection\n");
+        log.error("error updaing client connection");
         stop();
     }
     return res;
@@ -234,14 +234,14 @@ void PropsClient::doHandshake(NetBuf &buffer)
         return;
 
     if (memcmp(buffer.getData(), "NP2\n", 4)) {
-        log.error("invalid protocol!\n");
+        log.error("invalid protocol!");
         stop();
         return;
     }
 
     buffer.remove(4);
 
-    con.send((unsigned char*)"NP1\n", 4);
+    con.send((unsigned char*)"NP2\n", 4);
 
     for (int i = 0; i < 16; i++)
         seed[i] = (unsigned char)rand();
@@ -269,9 +269,11 @@ void PropsClient::doVerify(NetBuf &buffer)
     buffer.remove(16);
 
     if (passed) {
+        log.debug("password accepted");
         con.send((unsigned char*)"PASS", 4);
         state = COMMAND;
     } else {
+        log.debug("invalid password");
         con.send((unsigned char*)"DENY", 4);
         con.sendAll();
         stop();
@@ -295,7 +297,7 @@ void PropsClient::handleSubscription(NetBuf &buffer)
     buffer.remove(nameSize + 6);
 
     if ((1 > type) || (4 < type)) {
-        log.error("Invalid property type %i\n", type);
+        log.error("Invalid property type %i", type);
         stop();
         return;
     }
@@ -308,7 +310,7 @@ void PropsClient::handleSubscription(NetBuf &buffer)
         prop = properties.getProp(name, type);
 
     if (! prop) {
-        log.error("Can't reference property %s\n", name.c_str());
+        log.error("Can't reference property '%s'", name.c_str());
         return;
     }
 
@@ -353,7 +355,7 @@ void PropsClient::handleSetProp(NetBuf &buffer)
     unsigned int sz = 5;
     int dataSz = getPropTypeSize(command[2]);
     if (! dataSz) {
-        log.error("Invalid property type %i\n", command[2]);
+        log.error("Invalid property type %i", command[2]);
         stop();
         return;
     }
@@ -362,7 +364,7 @@ void PropsClient::handleSetProp(NetBuf &buffer)
     if (buffer.getFilled() < sz)
         return;
 
-    if (PROP_STRING == getPropTypeSize(command[2])) {
+    if (PROP_STRING == command[2]) {
         dataSz = netToInt16(command + 5);
         sz += dataSz;
     }
@@ -373,7 +375,7 @@ void PropsClient::handleSetProp(NetBuf &buffer)
 
     std::map<int, ClientProp>::iterator i = propRefs.find(command[1]);
     if (i == propRefs.end()) {
-        log.warning("preoperty %i doesn't exists\n", command[1]);
+        log.warning("preoperty %i doesn't exists", command[1]);
         buffer.remove(sz);
         stop();
         return;
@@ -388,7 +390,7 @@ void PropsClient::handleSetProp(NetBuf &buffer)
             prop.setString(std::string((const char*)command + 7, dataSz));
             break;
         default:
-            log.error("invalid property type %i\n", command[2]);
+            log.error("invalid property type %i", command[2]);
             stop();
     }
         
@@ -411,7 +413,7 @@ void PropsClient::doCommand(NetBuf &buffer)
             case 2: handleSetProp(buffer);  break;
             case 3: handleGetProps(buffer);  break;
             default:
-                log.error("Invalid command %i\n", command);
+                log.error("Invalid command %i", command);
                 stop();
         }
     } while ((COMMAND == state) && (buffer.getFilled() != lastFilled) && 

@@ -130,6 +130,12 @@ void sasl_set_graphics_callbacks(SASL sasl,
 struct lua_State* sasl_get_lua(SASL sasl);
 
 
+/// add path for components searching
+/// \param sasl SASL handler.
+/// \param path path to add
+void sasl_add_search_path(SASL sasl, const char *path);
+
+
 // Properties related functions
 
 

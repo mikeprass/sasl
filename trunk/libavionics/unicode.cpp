@@ -1,6 +1,6 @@
 #include <wchar.h>
 #include <stdlib.h>
-#ifdef WIN32
+#ifdef WINDOWS
 #include <windows.h>
 #endif
 #include "unicode.h"
@@ -51,7 +51,7 @@
 
 
 
-#ifndef WIN32
+#ifndef WINDOWS
 
 static const char utf8_skip_data[256] = {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,

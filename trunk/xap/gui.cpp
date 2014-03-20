@@ -90,7 +90,7 @@ static void createOptionsDialog()
     int y2 = y - h;
 
     optionsWindow = XPCreateWidget(x, y, x2, y2,
-            1, "X-Avionics Network Options", 1, NULL, 
+            1, "SASL Network Options", 1, NULL, 
             xpWidgetClass_MainWindow);
     XPSetWidgetProperty(optionsWindow, xpProperty_MainWindowHasCloseBoxes, 1);
 
@@ -171,9 +171,9 @@ void xap::initGui()
     XPLMMenuID pluginsMenu = XPLMFindPluginsMenu();
 
     if (-1 == xapMenuItem)
-        xapMenuItem = XPLMAppendMenuItem(pluginsMenu, "X-Avionics", 
+        xapMenuItem = XPLMAppendMenuItem(pluginsMenu, "SASL", 
                 NULL, 1);
-    xapMenu = XPLMCreateMenu("X-Avionics", pluginsMenu, xapMenuItem,
+    xapMenu = XPLMCreateMenu("SASL", pluginsMenu, xapMenuItem,
             xapMenuCallback, NULL);
     startMenuItem = XPLMAppendMenuItem(xapMenu, "Start server", START_MENU, 1);
     stopMenuItem = XPLMAppendMenuItem(xapMenu, "Stop server", STOP_MENU, 1);

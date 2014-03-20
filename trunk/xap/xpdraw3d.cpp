@@ -41,21 +41,24 @@ static XPLMDataRef pilotHeading;
 */
 //static XPLMDataRef viewType;
 
-double lastViewX;
-double lastViewY;
-double lastViewZ;
-double lastViewPitch;
-double lastViewRoll;
-double lastViewHeading;
+static double lastViewX;
+static double lastViewY;
+static double lastViewZ;
+static double lastViewPitch;
+static double lastViewRoll;
+static double lastViewHeading;
 //int lastViewType;
 
 //static int viewType3dCockpit = 1026;
 
 // current OpenGL matrixes
-float projectionMatrix[16];
-float modelMatrix[16];
-float clipMatrix[16];
-float frustum[6][4];
+static float projectionMatrix[16];
+static float modelMatrix[16];
+static float clipMatrix[16];
+static float frustum[6][4];
+
+static int hdr_pass;
+static XPLMDataRef hdr_pass_dr;
 
 void xap3d::initDraw3d()
 {
@@ -79,14 +82,14 @@ void xap3d::initDraw3d()
     */
 }
 
-double radians(double degrees)
+/*static double radians(double degrees)
 {
     double radians = 0;
     radians = degrees * (M_PI/180);
     return radians;
-}
+}*/
 
-Vector crossProduct(Vector v1, Vector v2)
+static Vector crossProduct(Vector v1, Vector v2)
 {
     Vector vec;
     vec.x = v1.y * v2.z - v2.y * v1.z;
@@ -96,14 +99,14 @@ Vector crossProduct(Vector v1, Vector v2)
     return vec;
 }
 
-double dotProduct(Vector v1, Vector v2) {
+static double dotProduct(Vector v1, Vector v2) {
 	double dot;
     dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
     return dot;
  }
 
 // start texturing
-void setTexture(int texId)
+static void setTexture(int texId)
 {
     GLint currentTexture[1];
     glGetIntegerv(GL_TEXTURE_BINDING_2D,currentTexture);
@@ -117,7 +120,7 @@ void setTexture(int texId)
 }
 
 
-void extractMatrixes()
+static void extractMatrixes()
 {
     float   t;
 
@@ -227,7 +230,7 @@ void extractMatrixes()
     frustum[5][3] /= t;
 }
 
-bool isSphereInFrustum(double x, double y, double z, double r)
+static bool isSphereInFrustum(double x, double y, double z, double r)
 {
     int p;
 
@@ -239,7 +242,7 @@ bool isSphereInFrustum(double x, double y, double z, double r)
     return true;
 }
 
-void drawTexturedQuad(int texId, float size,
+/*static void drawTexturedQuad(int texId, float size,
                         double x, double y, double z,
                         float angleX, float angleY, float angleZ,
                         float u1, float v1, float u2, float v2)
@@ -272,11 +275,11 @@ void drawTexturedQuad(int texId, float size,
     glEnd();
 
     glPopMatrix();
-}
+}*/
 
 // billboarding code taken from http://www.lighthouse3d.com/opengl/billboarding/
 
-void drawTexturedBillboard(int texId, float width, float height,
+static void drawTexturedBillboard(int texId, float width, float height,
                            double x, double y, double z,
                            float r, float g, float b, float alpha,
                            float u1, float v1, float u2, float v2)
@@ -287,7 +290,7 @@ void drawTexturedBillboard(int texId, float width, float height,
     double angleCosine;
 
     // exit if this billboard is not in viewing frustum
-    if (!isSphereInFrustum(x,y,z, std::max(width_half,height_half))) {
+    if (!isSphereInFrustum(x,y,z, width_half > height_half ? width_half : height_half)) {
         return;
     }
 
@@ -479,7 +482,7 @@ static int luaDrawBillboard(lua_State *L)
 }
 
 // TODO: store billboards in a vertex buffers, sorted by texture before rendering
-void drawBillboards()
+static void drawBillboards()
 {
     if (billboardsToDraw.size()) {
         // set correct graphic states
@@ -525,23 +528,25 @@ void drawBillboards()
 
 void xap3d::draw3d(XPLMDrawingPhase phase)
 {
-    if (phase == xplm_Phase_Airplanes && hdr_pass == 1) {
-        //lastViewType = XPLMGetDatai(viewType);
+    if (phase == xplm_Phase_Airplanes) {
+        if ((hdr_pass_dr && XPLMGetDatai(hdr_pass_dr) == 1) || ++hdr_pass == 1)
+        {
+            //lastViewType = XPLMGetDatai(viewType);
 
-        lastViewPitch = XPLMGetDataf(viewPitch);
-        lastViewRoll = XPLMGetDataf(viewRoll);
-        lastViewHeading = XPLMGetDataf(viewHeading);
+            lastViewPitch = XPLMGetDataf(viewPitch);
+            lastViewRoll = XPLMGetDataf(viewRoll);
+            lastViewHeading = XPLMGetDataf(viewHeading);
 
-        lastViewX = XPLMGetDataf(viewX);
-        lastViewY = XPLMGetDataf(viewY);
-        lastViewZ = XPLMGetDataf(viewZ);
+            lastViewX = XPLMGetDataf(viewX);
+            lastViewY = XPLMGetDataf(viewY);
+            lastViewZ = XPLMGetDataf(viewZ);
 
-        // extract current OpenGL matrixes
-        extractMatrixes();
+            // extract current OpenGL matrixes
+            extractMatrixes();
 
-        drawBillboards();
+            drawBillboards();
+        }
     }
-    hdr_pass++;
 }
 
 void xap3d::frameFinished()
@@ -554,3 +559,5 @@ void xap3d::exportDraw3dFunctions(lua_State *L)
 {
     lua_register(L, "drawBillboard", luaDrawBillboard);
 }
+
+

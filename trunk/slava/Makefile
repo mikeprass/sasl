@@ -5,14 +5,14 @@ HEADERS=$(wildcard *.h)
 SOURCES=$(wildcard *.cpp)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-CXXFLAGS+=`sdl-config --cflags` -I../libavionics  -I../libaccgl $(LUAJIT_CXXFLAGS)
-LNFLAGS+=-L../libavionics -L../libaccgl $(LUAJIT_LNFLAGS)
-LIBS+=-lm `sdl-config --libs` -lavionics -laccgl -lGL $(LUAJIT_LIBS)
+CXXFLAGS+=`sdl2-config --cflags` -I../alsound -I../libavionics  -I../libaccgl $(LUAJIT_CXXFLAGS) $(SOIL_CXXFLAGS)
+LNFLAGS+=-L../libavionics -L../libaccgl -L../alsound $(LUAJIT_LNFLAGS) $(SOIL_LNFLAGS)
+LIBS+=-lm `sdl2-config --libs` -lavionics -lalsound -laccgl $(LUAJIT_LIBS) -ldl $(SOIL_LIBS)
 
-ifneq ($(BUILD_64),yes)
-LIBS+=-lSOIL32
+ifeq ($(OS),Darwin)
+LIBS+=-framework CoreFoundation -framework Foundation -framework OpenGL -framework OpenAL 
 else
-LIBS+=-lSOIL
+LIBS+=-lGL -lopenal
 endif
 
 all: $(TARGET)

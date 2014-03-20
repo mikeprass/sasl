@@ -1,5 +1,8 @@
 #include "ogl.h"
 
+#ifdef __APPLE__
+#include "mac.h"
+#else
 
 #include <list>
 #include <map>
@@ -12,21 +15,15 @@
 #include "glheaders.h"
 #include "math2d.h"
 
+#include <GL/gl.h>
 
-#if !defined(WIN32) && !defined(__APPLE__)
-	#include <GL/gl.h>
-	#include <GL/glx.h>
-#elif defined(__APPLE__)
-	#include <OpenGL/OpenGL.h>
-	#include <OpenGL/gl.h>
-	#include <OpenGL/glu.h>
-	#include <OpenGL/glext.h>
+#ifndef WINDOWS
+#include <GL/glx.h>
 #else
-	#include <GL/gl.h>
 #endif
 
 
-#ifndef __APPLE__
+
 // OpenGL functions
 typedef void (*GenFramebuffers)(GLsizei n, GLuint *buffers);
 static GenFramebuffers glGenFramebuffers = NULL;
@@ -65,7 +62,6 @@ static GenerateMipmap glGenerateMipmap = NULL;
 #define GL_CLAMP_TO_EDGE                  0x812F
 #endif
 
-#endif
 
 // graphics context
 struct OglCanvas
@@ -143,8 +139,6 @@ struct OglCanvas
     int currentFboTex;
 };
 
-// stores last clip area (x1,y1,width,height)
-GLint  lastClipArea[4];
 
 
 /// initialize graphics before frame start
@@ -426,11 +420,13 @@ static void setClipArea(struct SaslGraphicsCallbacks *canvas,
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
 
-    // store viewport
-    glGetIntegerv(GL_VIEWPORT, lastClipArea);
-
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(x ,y , width, height);
+    // TODO: implement it.
+    // it will never work properly implemented by scissor test
+    // because of components may overlap its clipping areas.
+    // stencil test is right way for this job, but stencil buffer
+    // is not available in x-plane (at least wasn't when i tested it).
+    // lookd likr only way to go depth buffer hack.... if it is 
+    // avilable for panels
 
     dumpBuffers(c);
 }
@@ -439,12 +435,12 @@ static void setClipArea(struct SaslGraphicsCallbacks *canvas,
 // disable clipping.
 static void resetClipArea(struct SaslGraphicsCallbacks *canvas)
 {
-    //OglCanvas *c = (OglCanvas*)canvas;
+    OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
 
-    glDisable(GL_SCISSOR_TEST);
+    // TODO: implement it.  see notes in setClipArea
 
-    glScissor(lastClipArea[0],lastClipArea[1],lastClipArea[2],lastClipArea[3]);
+    dumpBuffers(c);
 }
 
 
@@ -453,10 +449,6 @@ static void pushTransform(struct SaslGraphicsCallbacks *canvas)
 {
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
-/*    if (c->numVertices)
-        c->batchTrans++;
-    dumpBuffers(c);
-    glPushMatrix();*/
     Matrix m = c->transform.back();
     c->transform.push_back(m);
 }
@@ -466,10 +458,6 @@ static void popTransform(struct SaslGraphicsCallbacks *canvas)
 {
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
-/*    if (c->numVertices)
-        c->batchTrans++;
-    dumpBuffers(c);
-    glPopMatrix();*/
     if (1 < c->transform.size())
         c->transform.pop_back();
     else
@@ -620,8 +608,10 @@ static int setRenderTarget(struct SaslGraphicsCallbacks *canvas,
 
     dumpBuffers(c);
 
-    if (! c->fboAvailable)
+    if (! c->fboAvailable) {
+        printf("fbo not available\n");
         return -1;
+    }
 
     if (-1 != textureId) {
         // save state
@@ -640,8 +630,10 @@ static int setRenderTarget(struct SaslGraphicsCallbacks *canvas,
         // enable fbo
         c->defaultFbo = getCurrentFbo();
         GLuint fbo = getFbo(c, textureId);
-        if ((GLuint)-1 == fbo)
+        if ((GLuint)-1 == fbo) {
+            printf("can't create fbo\n");
             return -1;
+        }
         c->currentFboTex = textureId;
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -697,12 +689,12 @@ static void recreateTexture(struct SaslGraphicsCallbacks *canvas,
         glBindTexture(GL_TEXTURE_2D, c->currentTexture);
 }
 
-#ifndef __APPLE__
+
 // returns address of OpenGL functions.  check EXT variants if normal not found
 typedef void (*Func)();
 static Func getProcAddress(const char *name)
 {
-#ifndef WIN32
+#ifndef WINDOWS
     Func res = glXGetProcAddressARB((GLubyte*)name);
 #else
     Func res = (Func)wglGetProcAddress(name);
@@ -711,7 +703,7 @@ static Func getProcAddress(const char *name)
         char buf[250];
         strcpy(buf, name);
         strcat(buf, "EXT");
-#ifndef WIN32
+#ifndef WINDOWS
         res = glXGetProcAddressARB((GLubyte*)buf);
 #else
         res = (Func)wglGetProcAddress(buf);
@@ -734,14 +726,7 @@ static bool initGlFunctions()
         glDeleteFramebuffers && glGenerateMipmap;
 }
 
-#else
 
-static bool initGlFunctions()
-{
-    return 1;
-}
-
-#endif
 
 
 // initializa canvas structure
@@ -766,10 +751,17 @@ struct SaslGraphicsCallbacks* saslgl_init_graphics()
     c->callbacks.find_texture = findTexture;
     c->callbacks.set_render_target = setRenderTarget;
     c->callbacks.recreate_texture = recreateTexture;
-    
+ 
+    c->binderCallback = NULL;   
+    c->genTexNameCallback = NULL;   
     c->maxVertices = c->numVertices = 0;
     c->vertexBuffer = c->texBuffer = c->colorBuffer = NULL;
     c->fboAvailable = initGlFunctions();
+    c->triangles = c->lines = c->textures = c->texturesSize = 0;
+    c->batches = c->batchTrans = c->batchNoTex = c->batchLines = 0;
+    c->currentTexture = 0;
+    c->defaultFbo = 0;
+    c->currentFboTex = 0;
 
     return (struct SaslGraphicsCallbacks*)c;
 }
@@ -813,3 +805,6 @@ void saslgl_set_gen_tex_name_callback(struct SaslGraphicsCallbacks *canvas,
         return;
     c->genTexNameCallback = generator;
 }
+
+#endif
+

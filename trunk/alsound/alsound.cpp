@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#if APL
+#if __APPLE__
 	#include <Carbon/Carbon.h>
 	#include <OpenAL/al.h>
 	#include <OpenAL/alc.h>

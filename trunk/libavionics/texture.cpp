@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "luna.h"
 #include "avionics.h"
-#include "SOIL.h"
+
 
 using namespace xa;
 
@@ -28,8 +28,10 @@ Texture::Texture(int id, TextureManager *manager):
 
 Texture::~Texture()
 {
-    if (managed)
-        manager->getGraphics()->free_texture(manager->getGraphics(), id);
+    if (managed) {
+        SaslGraphicsCallbacks* graphics = manager->getGraphics();
+        graphics->free_texture(graphics, id);
+    }
 }
 
 
@@ -332,27 +334,6 @@ void TextureManager::setGraphicsCallbacks(struct SaslGraphicsCallbacks *callback
     graphics = callbacks;
 }
 
-static int luaGetImageSize(lua_State *L)
-{
-    std::string fileName = lua_tostring(L, 1);
-
-    int w,h,ch;
-    unsigned char* foo = SOIL_load_image(fileName.c_str(), &w, &h, &ch, SOIL_LOAD_AUTO);
-    if (foo)
-    {
-        SOIL_free_image_data(foo);
-    }
-    else
-    {
-        w = 0;
-        h = 0;
-    }
-
-    lua_pushnumber(L, w);
-    lua_pushnumber(L, h);
-    return 2;
-}
-
 
 /// Lua wrapper for texture manager
 static int luaLoadImage(lua_State *L)
@@ -488,12 +469,13 @@ static int luaFindImage(lua_State *L)
                 (int)lua_tonumber(L, 2), &r, &g, &b, &a);
     }
 
-    if (0 >= texId) {
+    if (0 <= texId) {
         TextureManager *textureManager = getAvionics(L)->getTextureManager();
         lua_pushlightuserdata(L, textureManager->addForeignTexture(texId));
         return 1;
-    } else
+    } else {
         return 0;
+    }
 }
 
 
@@ -521,7 +503,7 @@ static int luaSetRenderTarget(lua_State *L)
         }
     }
 
-    lua_pushboolean(L, graphics->set_render_target(graphics, texId));
+    lua_pushboolean(L, 0 == graphics->set_render_target(graphics, texId));
     return 1;
 }
 
@@ -545,7 +527,6 @@ void xa::exportTextureToLua(Luna &lua)
 
     lua_register(L, "getGLTexture", luaLoadImage);
     lua_register(L, "getTextureSize", luaGetTextureSize);
-    lua_register(L, "getImageSize", luaGetImageSize);
     lua_register(L, "loadImageFromMemory", luaLoadImageFromMemory);
     lua_register(L, "unloadImage", luaUnloadImage);
     lua_register(L, "recreateImage", luaRecreateImage);

@@ -51,7 +51,7 @@ static void drawEnd(struct SaslGraphicsCallbacks *canvas)
 /// Returns texture ID or -1 on failure.  On success returns texture width
 //  and height in pixels
 static int loadTexture(struct SaslGraphicsCallbacks *canvas,
-        const char *name, int *width, int *height)
+        const char *buffer, int length, int *width, int *height)
 {
     OglCanvas *c = (OglCanvas*)canvas;
     if (! c)
@@ -61,7 +61,9 @@ static int loadTexture(struct SaslGraphicsCallbacks *canvas,
     if (c->genTexNameCallback)
         texId = c->genTexNameCallback();
 
-    unsigned id = SOIL_load_OGL_texture(name, 0, texId, SOIL_FLAG_POWER_OF_TWO);
+    unsigned id = SOIL_load_OGL_texture_from_memory(
+            (const unsigned char*)buffer, length, 
+            0, texId, SOIL_FLAG_POWER_OF_TWO);
     if (! id) 
         return -1;
  
@@ -85,7 +87,9 @@ static int loadTexture(struct SaslGraphicsCallbacks *canvas,
     }
 
     c->textures++;
-    c->texturesSize += (*width) * (*height);
+
+    if (width && height)
+        c->texturesSize += (*width) * (*height);
 
     return texId;
 }

@@ -16,6 +16,9 @@
 using namespace xap;
 
 
+#define MSG_ADD_DATAREF 0x01000000
+
+
 struct XPlaneProps;
 
 
@@ -145,6 +148,9 @@ struct XPlaneProps {
 
     /// list of properties to set
     PropsToSet propsToSet;
+
+    // ID of dataref editor plugin
+    XPLMPluginID dataRefPlugin; 
 };
 
 
@@ -153,6 +159,7 @@ SaslProps xap::propsInit()
 {
     XPlaneProps *props = new XPlaneProps;
     props->initialized = false;
+    props->dataRefPlugin = XPLM_NO_PLUGIN_ID;
     return props;
 }
 
@@ -206,11 +213,11 @@ void xap::funcPropsDone(SaslProps props)
 /// e.g. if name is "array[5]", name will be "array" and index will be 5
 static void cutArrayIndex(std::string &name, int &index)
 {
-    size_t firstIdx = name.find_first_of('[');
+    size_t firstIdx = name.find_last_of('[');
     if (std::string::npos == firstIdx)
         return;
     
-    size_t lastIdx = name.find_first_of('[', firstIdx);
+    size_t lastIdx = name.find_first_of(']', firstIdx);
     if (std::string::npos == lastIdx)
         return; // invalid index
 
@@ -743,6 +750,19 @@ static void writeInt(void *refcon, int value)
         p->data.intValue = value;
 }
 
+
+// register property in dataref editor plugin
+static void registerProp(XPlaneProps *props, const char *name)
+{
+    if (XPLM_NO_PLUGIN_ID != props->dataRefPlugin) {
+        CustomPropsMap::iterator i = props->customProps.find(name);
+        if (i != props->customProps.end())
+            XPLMSendMessageToPlugin(props->dataRefPlugin, MSG_ADD_DATAREF, 
+                    (void*)((*i).first.c_str()));
+    }
+}
+
+
 /// Create integer property
 static SaslPropRef createIntProp(XPlaneProps *props, const char *name)
 {
@@ -757,6 +777,7 @@ static SaslPropRef createIntProp(XPlaneProps *props, const char *name)
         return NULL;
     }
     props->customProps[name] = prop;
+    registerProp(props, name);
     return getPropRef(props, name, PROP_INT);
 }
 
@@ -794,6 +815,7 @@ static SaslPropRef createFloatProp(XPlaneProps *props, const char *name)
         return NULL;
     }
     props->customProps[name] = prop;
+    registerProp(props, name);
     return getPropRef(props, name, PROP_FLOAT);
 }
 
@@ -832,6 +854,7 @@ static SaslPropRef createDoubleProp(XPlaneProps *props, const char *name)
         return NULL;
     }
     props->customProps[name] = prop;
+    registerProp(props, name);
     return getPropRef(props, name, PROP_DOUBLE);
 }
 
@@ -883,6 +906,7 @@ static SaslPropRef createStringProp(XPlaneProps *props, const char *name,
         return NULL;
     }
     props->customProps[name] = prop;
+    registerProp(props, name);
     return getPropRef(props, name, PROP_STRING);
 }
 
@@ -929,6 +953,15 @@ static int updateProps(SaslProps props)
             }
         }
         p->propsToSet.clear();
+
+        p->dataRefPlugin = XPLMFindPluginBySignature("xplanesdk.examples.DataRefEditor");
+        if (XPLM_NO_PLUGIN_ID != p->dataRefPlugin) {
+            for (CustomPropsMap::iterator i = p->customProps.begin(); 
+                    i != p->customProps.end(); i++) 
+            {
+                registerProp(p, (*i).first.c_str());
+            }
+        }
     }
 
     return 0;

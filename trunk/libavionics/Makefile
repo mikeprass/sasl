@@ -5,8 +5,7 @@ HEADERS=$(wildcard *.h)
 SOURCES=$(wildcard *.cpp)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-DEFS=-DLIN=1 -DXPM200
-CXXFLAGS+=$(LUAJIT_CXXFLAGS) -I$(XPSDK)/CHeaders/XPLM $(DEFS)
+CXXFLAGS+=$(LUAJIT_CXXFLAGS)
 
 all: $(TARGET)
 

@@ -1,4 +1,3 @@
-
 #include "custom_alloc.h"
 #include <cstdio>
 
@@ -29,9 +28,7 @@ void *lj_alloc_f(void *msp, void *ptr, size_t osize, size_t nsize)
 	r.ptr = ptr;
 	r.osize = osize;
 	r.nsize = nsize;
-#ifndef NDEBUG
-	printf ("in lj_alloc_f ud=msp=%p, ptr=%p, osize=%lu, nsize=%lu\n", msp, ptr, osize, nsize);
-#endif
 	XPLMSendMessageToPlugin(XPLM_PLUGIN_XPLANE, ALLOC_REALLOC,&r);
 	return r.ptr;
 }
+

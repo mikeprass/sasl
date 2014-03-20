@@ -1,6 +1,7 @@
 #ifndef __XP_LUA_H__
 #define __XP_LUA_H__
 
+
 extern "C" {
 #include <lua.h>
 }
@@ -20,6 +21,10 @@ lua_State* luaCreatorCallback();
 
 // destroy lua state with external allocator
 void luaDestroyerCallback(lua_State *lua);
+
+// returns true if message registered to handle
+void handleMessage(lua_State *lua, int fromWho, long message, void *param);
+
 
 };
 

@@ -190,6 +190,15 @@ struct lua_State* sasl_get_lua(SASL sasl)
     return NULL;
 }
 
+
+void sasl_add_search_path(SASL sasl, const char *path)
+{
+    TRY
+        return sasl->avionics->addSearchPath(path);
+    CATCH("adding search path")
+}
+
+
 int sasl_set_props(SASL sasl, struct SaslPropsCallbacks *callbacks, SaslProps props)
 {
     TRY
