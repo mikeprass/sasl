@@ -46,7 +46,7 @@ using namespace xap3d;
 // plugin is enabled or disabled
 static bool disabled = false;
 
-// X-Avionics handler
+// SASL handler
 SASL xap::sasl = NULL;
 
 // True for 2D panels
@@ -222,7 +222,6 @@ static std::string getDirSeparator()
 {
     std::string sep = XPLMGetDirectorySeparator();
     if(sep == std::string(":")) {
-        XPLMDebugString("SASL: Using Mac paths\n");
         return std::string("/");
     } else {
         return sep;
@@ -246,7 +245,7 @@ static std::string getConfigFileName()
 /// Returns true if file exists
 static bool fileDoesExist(const std::string &path)
 {
-    FILE *f = fopen(path.c_str(), "r");
+    FILE *f = fopen(path.c_str(), "rb");
     if (! f)
         return false;
     fclose(f);
@@ -255,7 +254,7 @@ static bool fileDoesExist(const std::string &path)
 
 
 /// Returns directory of current aircraft, with the trailing separator
-static std::string getAircraftDir()
+std::string xap::getAircraftDir()
 {
     char model[512], path[512];
     XPLMGetNthAircraftModel(0, model, path);
@@ -600,20 +599,6 @@ static XPLMWindowID createFakeWindow()
 }
 
 
-/// Returns path to libavionics data dir
-static std::string getDataDir()
-{
-    char buf[512];
-    XPLMGetSystemPath(buf);
-    
-    std::string sep = getDirSeparator();
-    std::string path = carbonPathToPosixPath(std::string(buf));
-    
-    return path +  "Resources" + sep +
-        "plugins" + sep + "sasl" + sep + "data";
-}
-
-
 /// Destroy avionics
 /// \param keepProps if true, do not destroy properties
 static void freeAvionics(bool keepProps)
@@ -686,7 +671,8 @@ void xap::reloadPanel(bool keepProps)
 
     std::string dataDir = dir + "/plugins/sasl/data";
     if (! fileDoesExist(dataDir + "/scripts/init.lua"))
-    dataDir = getDataDir();
+        XPLMDebugString("SASL: can't find init script");
+
 
     sasl = sasl_init(dataDir.c_str(), luaCreatorCallback, luaDestroyerCallback);
     if (! sasl) {
@@ -871,7 +857,6 @@ PLUGIN_API int XPluginStart(char *outName, char *outSig, char *outDesc)
     XPLMDebugString("\n");
 
     panelRenderPass =  XPLMFindDataRef("sim/graphics/view/panel_render_type");
-    viewType = XPLMFindDataRef("sim/graphics/view/view_type");
     //windowLeft = XPLMFindDataRef("sim/graphics/view/panel_total_win_l");
     panelLeft = XPLMFindDataRef("sim/graphics/view/panel_total_pnl_l");
     panelBottom = XPLMFindDataRef("sim/graphics/view/panel_total_pnl_b");
@@ -963,6 +948,7 @@ PLUGIN_API int XPluginEnable(void)
 }
 
 
+
 PLUGIN_API void XPluginReceiveMessage(XPLMPluginID fromWho, 
         long message, void *param)
 {
@@ -982,6 +968,8 @@ PLUGIN_API void XPluginReceiveMessage(XPLMPluginID fromWho,
             case XPLM_MSG_AIRPLANE_COUNT_CHANGED:
                 callCallback("onAirplaneCountChanged");
                 break;
+            default:
+                handleMessage(sasl_get_lua(sasl), fromWho, message, param);
         }
     }
 }

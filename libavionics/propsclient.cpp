@@ -131,7 +131,7 @@ PropValue::PropValue(NetProps *props, int id, int type, const char *name):
 
 PropValue::~PropValue()
 {
-    if (lastValue.buf)
+    if ((PROP_STRING == type) && lastValue.buf)
         free(lastValue.buf);
 }
 
@@ -146,7 +146,7 @@ int PropValue::getInt(int *err)
         case PROP_INT: return lastValue.intValue;
         case PROP_FLOAT: return (int)lastValue.floatValue;
         case PROP_DOUBLE: return (int)lastValue.doubleValue;
-        case PROP_STRING: return strToInt(lastValue.buf);
+        case PROP_STRING: return strToInt(lastValue.buf ? lastValue.buf : "0");
     }
 
     if (err)
@@ -205,7 +205,7 @@ float PropValue::getFloat(int *err)
             return lastValue.floatValue;
         case PROP_DOUBLE: 
             return (float)lastValue.doubleValue;
-        case PROP_STRING: return strToFloat(lastValue.buf);
+        case PROP_STRING: return strToFloat(lastValue.buf ? lastValue.buf : "0");
     }
 
     if (err)
@@ -235,7 +235,7 @@ double PropValue::getDouble(int *err)
         case PROP_INT: return lastValue.intValue;
         case PROP_FLOAT: return lastValue.floatValue;
         case PROP_DOUBLE: return lastValue.doubleValue;
-        case PROP_STRING: return strToDouble(lastValue.buf);
+        case PROP_STRING: return strToDouble(lastValue.buf ? lastValue.buf : "0");
     }
 
     if (err)
@@ -385,7 +385,7 @@ static SaslPropRef createSaslPropRef(SaslProps props, const char *name, int type
     buf.addUint8(type);
     buf.addUint8(id);
     buf.addUint8(len);
-    buf.addUint8(maxSize);
+    buf.addUint16(maxSize);
     buf.add((unsigned char*)name, len);
 
     return p->values[id - 1];
@@ -395,13 +395,13 @@ static SaslPropRef createSaslPropRef(SaslProps props, const char *name, int type
 /// Get reference to property
 static SaslPropRef getSaslPropRef(SaslProps props, const char *name, int type)
 {
-    return createSaslPropRef(props, name, type, 1, 0);
+    return createSaslPropRef(props, name, type, 0, 1);
 }
 
 /// Get reference to property or create new property
 static SaslPropRef createProp(SaslProps props, const char *name, int type, int maxSize)
 {
-    return createSaslPropRef(props, name, type, 5, maxSize);
+    return createSaslPropRef(props, name, type, maxSize, 5);
 }
 
 /// create functional propert
@@ -545,13 +545,12 @@ static int updateProps(SaslProps props)
     if (! p)
         return -1;
 
-    if (p->con.update())
+    if (p->con.update()) {
         return -1;
-
-    bool isPropsAvailable = p->propsToGo;
+    }
 
     NetBuf &buf = p->con.getRecvBuffer();
-    if ((! p->propsToGo) && (2 <= buf.getFilled())) {
+    if ((! p->propsToGo) && (4 <= buf.getFilled())) {
         int id = buf.getData()[0];
         p->propsToGo = buf.getData()[1];
         p->curSetSerial = netToInt16(buf.getData() + 2);
@@ -561,7 +560,6 @@ static int updateProps(SaslProps props)
             p->con.close();
             return -1;
         }
-        isPropsAvailable = true;
     }
 
     while (p->propsToGo && (1 < buf.getFilled())) {
@@ -575,8 +573,11 @@ static int updateProps(SaslProps props)
         int sz = getPropTypeSize(v->getType());
         if (buf.getFilled() < (unsigned)sz + 1)
             break;
-        if (PROP_STRING == v->getType())
+        if (PROP_STRING == v->getType()) {
+            if (buf.getFilled() < 3)
+                break;
             sz += netToInt16(buf.getData() + 1);
+        }
         if (buf.getFilled() < (unsigned)sz + 1)
             break;
         v->parse(buf.getData() + 1, p->curSetSerial);
@@ -584,8 +585,9 @@ static int updateProps(SaslProps props)
         p->propsToGo--;
     }
 
-    if ((! p->propsToGo) && (isPropsAvailable))
+    if (! p->propsToGo) {
         p->con.getSendBuffer().addUint8(3);
+    }
 
     return 0;
 }

@@ -2,23 +2,32 @@ include ../common.mk
 
 PLUGINS="../../plugin/sasl"
 
+
+
+ifeq ($(OS),Darwin)
+TARGET=mac.xpl
+CXXFLAGS+=-DAPL=1
+else
 TARGET=lin.xpl
+CXXFLAGS+=-DLIN=1
+endif
 
 HEADERS=$(wildcard *.h)
 SOURCES=$(wildcard *.cpp)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-DEFS=-DLIN=1 -DXPLM200
-CXXFLAGS+=-I$(XPSDK)/CHeaders/XPLM -I$(XPSDK)/CHeaders/Widgets $(LUAJIT_CXXFLAGS) -I../libavionics -I../libaccgl -I../alsound $(DEFS)
-LNFLAGS+=-shared -rdynamic -nodefaultlibs -undefined_warning -L../libavionics -L../libaccgl -L../alsound -L$(LUAJIT)/lib $(LUAJIT_LNFLAGS)
-LIBS+=-lm -lavionics -laccgl -lalsound -lopenal $(LUAJIT_LIBS)
+CXXFLAGS+=-I$(XPSDK)/CHeaders/XPLM -I$(XPSDK)/CHeaders/Widgets $(LUAJIT_CXXFLAGS) $(SOIL_CXXFLAGS) -I../libavionics -I../libaccgl -I../alsound -DXPLM200
+LNFLAGS+=-shared -rdynamic -fno-stack-protector -ffast-math -nodefaultlibs -L../libavionics -L../libaccgl -L../alsound $(LUAJIT_LNFLAGS) $(SOIL_LNFLAGS)
+LIBS+=-lm -lavionics -laccgl -lalsound $(LUAJIT_LIBS) $(SOIL_LIBS)
 
-ifneq ($(BUILD_64),yes)
-LIBS+=-lSOIL32
-LNFLAGS+=-Wl,--version-script=32bit_linker_script
+ifeq ($(OS),Darwin)
+LNFLAGS+=-dynamiclib -undefined warning -flat_namespace -Wl,-exported_symbols_list -Wl,linkscript.mac
+LIBS+=-F$(XPSDK)/Libraries/Mac/ -framework XPWidgets -framework XPLM -framework CoreFoundation -framework OpenGL -framework OpenAL 
 else
-LIBS+=-lSOIL
+LNFLAGS+= -Wl,--version-script=linkscript.linux
+LIBS+=-lopenal
 endif
+
 
 all: $(TARGET)
 

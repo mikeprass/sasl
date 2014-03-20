@@ -23,6 +23,7 @@ Avionics::Avionics(const std::string &path,
     panelWidth = popupWidth = 1024;
     panelHeight = popupHeight = 768;
     setGraphicsCallbacks(getGraphicsStub());
+
     lastGcTime = 0;
 
     bgR = bgG = bgB = 1.0f;

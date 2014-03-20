@@ -18,14 +18,22 @@
 #include "ogl.h"
 #include "cmdline.h"
 #include "fps.h"
+#include "alsound.h"
 
 
 using namespace slava;
 
 
+// application window
+static SDL_Window *window = NULL;
+
+// OpenGL context
+static SDL_GLContext glContext = NULL;
+
+
 static void initSDL()
 {
-    if (SDL_Init(SDL_INIT_VIDEO)) {
+    if (-1 == SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS)) {
         fprintf(stderr, "Can't initialize SDL: %s\n", SDL_GetError());
         exit(1);
     }
@@ -45,18 +53,26 @@ static void updateScreenSettings(int width, int height)
 }
 
 
-static void initScreen(int width, int height, bool fullscreen)
+static void initScreen(int &width, int &height, bool fullscreen, 
+        const std::string &caption)
 {
-    int flags = SDL_OPENGL;
-#ifndef WINDOWS
-    flags |= SDL_RESIZABLE;
-#endif
+    int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     if (fullscreen)
-        flags |= SDL_FULLSCREEN;
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
-    SDL_Surface *screen = SDL_SetVideoMode(width, height, 32, flags);
-    if (! screen) {
+    window = SDL_CreateWindow(caption.c_str(), SDL_WINDOWPOS_CENTERED, 
+        SDL_WINDOWPOS_CENTERED, width, height, flags);
+    if (! window) {
         fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    SDL_GetWindowSize(window, &width, &height);
+
+    glContext = SDL_GL_CreateContext(window);
+    if (! glContext) {
+        fprintf(stderr, "Unable to create OpenGL context: %s\n", 
+                SDL_GetError());
         exit(1);
     }
 
@@ -70,22 +86,28 @@ static void initScreen(int width, int height, bool fullscreen)
 }
 
 
-SASL createPanel(SaslGraphicsCallbacks* graphics, int width, int height, 
+static SASL createPanel(SaslGraphicsCallbacks* graphics, int width, int height, 
         const std::string &data, const std::string &panel, 
-        const std::string &host, int port, const std::string &secret)
+        const std::string &host, int port, const std::string &secret,
+        std::vector<std::string> &paths)
 {
-    SASL sasl = sasl_init(data.c_str());
+    SASL sasl = sasl_init(data.c_str(), NULL, NULL);
     if (! sasl) {
         fprintf(stderr, "Unable to initialize avionics library\n");
         exit(1);
     }
         
     sasl_set_graphics_callbacks(sasl, graphics);
+    /*SaslAlSound* sound =*/ sasl_init_al_sound(sasl);
     
     sasl_set_panel_size(sasl, width, height);
     sasl_set_popup_size(sasl, width, height);
     sasl_enable_click_emulator(sasl, true);
     sasl_set_background_color(sasl, 1, 1, 1, 1);
+
+    for (std::vector<std::string>::iterator i = paths.begin(); 
+            i != paths.end(); i++) 
+        sasl_add_search_path(sasl, (*i).c_str());
 
     if (host.size())
         if (sasl_connect_to_server(sasl, host.c_str(), port, secret.c_str())) {
@@ -124,15 +146,15 @@ int main(int argc, char *argv[])
     int width = cmdLine.getScreenWidth();
     int height = cmdLine.getScreenHeight();
 
-    initScreen(width, height, cmdLine.isFullscreen());
     std::string title = "SLAVA - " + cmdLine.getPanel();
-    SDL_WM_SetCaption(title.c_str(), title.c_str());
+    initScreen(width, height, cmdLine.isFullscreen(), title);
 
     SaslGraphicsCallbacks* graphics = saslgl_init_graphics();
 
-    SASL sasl = createPanel(graphics, width, height, cmdLine.getDataDir(), 
-            cmdLine.getPanel(), cmdLine.getNetHost(), cmdLine.getNetPort(),
-            cmdLine.getNetSecret());
+    SASL sasl = createPanel(graphics, width, height, 
+            cmdLine.getDataDir(), cmdLine.getPanel(), 
+            cmdLine.getNetHost(), cmdLine.getNetPort(),
+            cmdLine.getNetSecret(), cmdLine.getPaths());
 
     Fps fps;
     fps.setTargetFps(cmdLine.getTargetFps());
@@ -145,7 +167,7 @@ int main(int argc, char *argv[])
         glClear(GL_COLOR_BUFFER_BIT);
         if (sasl_draw_panel(sasl, STAGE_ALL))
             break;
-        SDL_GL_SwapBuffers();
+        SDL_GL_SwapWindow(window);
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -181,7 +203,7 @@ int main(int argc, char *argv[])
                             sasl = createPanel(graphics, width, height, 
                                     cmdLine.getDataDir(), cmdLine.getPanel(), 
                                     cmdLine.getNetHost(), cmdLine.getNetPort(),
-                                    cmdLine.getNetSecret());
+                                    cmdLine.getNetSecret(), cmdLine.getPaths());
                             showClickable = false;
                             break;
                         
@@ -193,23 +215,33 @@ int main(int argc, char *argv[])
                     };
                     break;
 
-#ifndef WINDOWS                
-                case SDL_VIDEORESIZE: 
-                    width = event.resize.w;
-                    height = event.resize.h;
-                    initScreen(width, height, cmdLine.isFullscreen());
-                    sasl_set_panel_size(sasl, width, height);
-                    sasl_set_popup_size(sasl, width, height);
+                case SDL_WINDOWEVENT: 
+                    {
+                        int newWidth, newHeight;
+                        SDL_GetWindowSize(window, &newWidth, &newHeight);
+                        if ((newWidth != width) || (newHeight != height)) {
+                            width = newWidth;
+                            height = newHeight;
+                            updateScreenSettings(width, height);
+                            sasl_set_panel_size(sasl, width, height);
+                            sasl_set_popup_size(sasl, width, height);
+                        }
+                    }
                     break;
-#endif
             }
         }
 
         fps.update();
     }
 
-    saslgl_done_graphics(graphics);
     sasl_done(sasl);
+    saslgl_done_graphics(graphics);
+
+    if (glContext)
+        SDL_GL_DeleteContext(glContext);
+    if (window)
+        SDL_DestroyWindow(window);
+
     return 0;
 }
 

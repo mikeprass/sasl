@@ -351,13 +351,13 @@ int AsyncCon::update()
 {
     if (sendBuffer.getFilled() && canSend(sock))
         if (sendMore()) {
-            log.error("error sending data\n");
+            log.error("error sending data");
             return -1;
         }
 
     if (canReceive(sock))
         if (recvMore()) {
-            log.error("error receiving data\n");
+            log.error("error receiving data");
             return -1;
         }
 
@@ -402,7 +402,7 @@ void AsyncCon::setCallback(NetReceiver *callback)
 void AsyncCon::close()
 {
     if (sock) {
-        log.debug("closing connection\n");
+        log.debug("closing connection");
         closeSocket(sock);
         sock = 0;
     }

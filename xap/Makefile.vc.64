@@ -11,8 +11,8 @@ CXX=cl
 LD=link
 
 CXXFLAGS+=/EHsc /DWINDOWS /I../libavionics  /I../libaccgl /I../alsound /nologo /MT /O2 /GL /DNDEBUG /fp:precise /TP /DWIN32 /I$(SDK)/CHeaders/XPLM /I$(SDK)/CHeaders/Widgets /DIBM=1 /DXPLM200
-LNFLAGS=/nologo /LTCG /LIBPATH:$(SDK)/Libraries/Win /LIBPATH:$(OPENAL)/Libs/Win32 /DLL 
-LIBS=../libavionics/avionics.lib ../libaccgl/accgl.lib ../alsound/alsound.lib xplm.lib xpwidgets.lib openal32.lib
+LNFLAGS=/nologo /LTCG /LIBPATH:$(SDK)/Libraries/Win /LIBPATH:$(OPENAL)/Libs/Win64 /DLL 
+LIBS=../libavionics/avionics.lib ../libaccgl/accgl.lib ../alsound/alsound.lib xplm_64.lib xpwidgets_64.lib openal32.lib
 
 all: $(TARGET)
 

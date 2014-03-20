@@ -1,6 +1,7 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+#include <string>
 #include "libavionics.h"
 
 
@@ -14,6 +15,8 @@ extern Options options;
 extern SASL sasl;
 
 void reloadPanel(bool keepProps);
+
+std::string getAircraftDir();
 
 };
 

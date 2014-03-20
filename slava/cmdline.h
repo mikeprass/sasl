@@ -3,6 +3,8 @@
 
 
 #include <string>
+#include <vector>
+
 
 namespace slava {
 
@@ -36,6 +38,9 @@ class CmdLine
 
         /// Desired FPS
         int targetFps;
+        
+        /// paths to search components
+        std::vector<std::string> paths;
 
     public:
         /// Parse command line
@@ -68,6 +73,10 @@ class CmdLine
         
         /// Returns desired FPS
         int getTargetFps() const { return targetFps; }
+
+        /// returns additional search paths
+        std::vector<std::string>& getPaths() { return paths; }
+        
 };
 
 };

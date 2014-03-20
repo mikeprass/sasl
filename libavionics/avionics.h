@@ -195,7 +195,6 @@ class Avionics
         /// Returns sound API object
         Sound& getSound() { return sound; };
 
-    private:
         /// Add path to components search list
         void addSearchPath(const std::string &path);
         

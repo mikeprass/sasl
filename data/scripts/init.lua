@@ -25,6 +25,7 @@ function toboolean(value)
     end
 end
 
+
 -- load stands from cache
 function loadTableFromFile(fileName, name)
     local chunk = loadfile(fileName)
@@ -458,15 +459,14 @@ function drawComponent(v)
         saveGraphicsContext()
         local pos = get(v.position)
         setTranslation(pos[1], pos[2], pos[3], pos[4], v.size[1], v.size[2])
-		local clip = get(v.clip)
-
+        local clip = toboolean(get(v.clip))
+        if clip then
+            setClipArea(0, 0, v.size[1], v.size[2])
+        end
         v:draw()
-
-        if toboolean(clip) then
-            setClipArea(clip[1], clip[2], clip[3], clip[4])
+        if clip then
             resetClipArea()
         end
-
         restoreGraphicsContext()
     end
 end
@@ -969,6 +969,7 @@ end
 -- path to focused component
 local focusedComponentPath = nil
 
+
 -- update focused component path
 function setFocusedPath(path)
     if path and (0 == #path) then
@@ -1094,7 +1095,7 @@ function subpanel(tbl)
     end
     local c = createComponent(name, popups)
     set(c.position, tbl.position)
-	set(c.clip, tbl.clip)
+    set(c.clip, tbl.clip)
     c.size = { tbl.position[3], tbl.position[4] }
     c.onMouseClick = function (comp, x, y, button, parentX, parentY)
         defaultOnMouseClick(comp, x, y, button, parentX, parentY)
@@ -1110,6 +1111,9 @@ function subpanel(tbl)
     end
     set(c.visible, false)
     set(c.movable, true)
+    if get(tbl.noMove) then
+        set(c.movable, false)
+    end
     if get(tbl.savePosition) then
         set(c.savePosition, true);
     end
@@ -1316,6 +1320,7 @@ function include(component, name)
     end
 end
 
+
 -- load sample from file
 -- find file using the same rules as for textures
 function loadSample(fileName)
@@ -1338,6 +1343,7 @@ function loadSample(fileName)
     return s
 end
 
+
 -- play sound inside of cockpit
 SOUND_INTERNAL = 1
 
@@ -1346,6 +1352,7 @@ SOUND_EXTERNAL = 2
 
 -- play sound both inside and outside
 SOUND_EVERYWHERE = 3
+
 
 
 -- load object from file
@@ -1369,7 +1376,6 @@ function loadObject(fileName)
     end
     return o
 end
-
 
 -- called whenever the user's plane is positioned at a new airport
 function onAirportLoaded()

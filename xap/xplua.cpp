@@ -1,6 +1,7 @@
 #include "xplua.h"
 #include "main.h"
 #include <string>
+#include <map>
 #include <stdio.h>
 #include <string.h>
 
@@ -20,7 +21,7 @@ using namespace xap;
 using namespace xap3d;
 
 
-static void *ud = NULL;  // TODO: need better name
+static void *ud;  // TODO: need better name
 bool xplane_wants_allocator = false;
 
 
@@ -346,6 +347,92 @@ static int reloadPlugins(lua_State *L)
 }
 
 
+// send command to plugin with specified ID
+static int sendMessageToPlugin(lua_State *L)
+{
+    const char *data = lua_isnil(L, 3) ? NULL : lua_tostring(L, 3);
+    XPLMSendMessageToPlugin(lua_tonumber(L, 1), lua_tonumber(L, 2),
+            (void*)data);
+    return 0;
+}
+
+
+// name of table for callbacks registry
+#define REF_TBL "xapCommands"
+
+// saves reference to object on top of stack
+static int addRef(lua_State *L)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, REF_TBL);
+    lua_pushvalue(L, -2);
+    int ref = luaL_ref(L, -2);
+    lua_pop(L, 2);
+    return ref;
+}
+
+
+// find object by reference
+static void getRef(lua_State *L, int ref)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, REF_TBL);
+    lua_rawgeti(L, -1, ref);
+    lua_remove(L, -2);
+}
+
+
+// remove reference
+static void unRef(lua_State *L, int ref)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, REF_TBL);
+    luaL_unref(L, -1, ref);
+}
+
+
+// message handlers
+static std::map<long, int> messageHandlers;
+
+
+// store message handler
+static int luaRegisterMessageHandler(lua_State *L)
+{
+    long msgId = lua_tonumber(L, 1);
+    lua_pushvalue(L, 2);
+    messageHandlers[msgId] = addRef(L);
+    return 0;
+}
+
+
+// remove message handler
+static int luaUnregisterMessageHandler(lua_State *L)
+{
+    long msgId = lua_tonumber(L, 1);
+    std::map<long, int>::iterator i = messageHandlers.find(msgId);
+    if (i == messageHandlers.end())
+        return 0;
+    unRef(L, (*i).second);
+    messageHandlers.erase(i);
+    return 0;
+}
+
+
+void xap::handleMessage(lua_State *L, int fromWho, long message, void *param)
+{
+    std::map<long, int>::iterator i = messageHandlers.find(message);
+    if (i == messageHandlers.end())
+        return;
+    
+    getRef(L, (*i).second);
+    lua_pushnumber(L, fromWho);
+    lua_pushnumber(L, message);
+    if (param)
+        lua_pushstring(L, (char*)param);
+    else
+        lua_pushnil(L);
+    if (lua_pcall(L, 3, 0, 0)) 
+        printf("Error callang message handler: %s\n", lua_tostring(L, -1));
+}
+
+
 // terratin probe API
 
 // pointer to terrain probe object
@@ -412,6 +499,14 @@ static int luaGetAircraftLiteMap(lua_State *L)
 }
 
 
+// returns path to ACF file
+static int luaGetAircraftPath(lua_State *L)
+{
+    std::string path = getAircraftDir();
+    lua_pushstring(L, path.c_str());
+    return 1;
+}
+
 
 // remove probe object if exists
 void xap::doneLuaFunctions()
@@ -440,6 +535,7 @@ void xap::exportLuaFunctions(lua_State *L)
     lua_register(L, "reloadScenery", reloadScenery);
     lua_register(L, "worldToLocal", worldToLocal);
     lua_register(L, "localToWorld", localToWorld);
+    lua_register(L, "getAircraftPath", luaGetAircraftPath);
  
     // navaid api
 
@@ -481,6 +577,7 @@ void xap::exportLuaFunctions(lua_State *L)
     lua_register(L, "getGPSDestination", getGPSDestination);
 
     // plugins api
+    registerConst(L, "NO_PLUGIN_ID", XPLM_NO_PLUGIN_ID);
     lua_register(L, "getMyID", getMyID);
     lua_register(L, "countPlugins", countPlugins);
     lua_register(L, "getNthPlugin", getNthPlugin);
@@ -491,6 +588,9 @@ void xap::exportLuaFunctions(lua_State *L)
     lua_register(L, "enablePlugin", enablePlugin);
     lua_register(L, "disablePlugin", disablePlugin);
     lua_register(L, "reloadPlugins", reloadPlugins);
+    lua_register(L, "sendMessageToPlugin", sendMessageToPlugin);
+    lua_register(L, "registerMessageHandler", luaRegisterMessageHandler);
+    lua_register(L, "unregisterMessageHandler", luaUnregisterMessageHandler);
 
     // objects api
     exportObjectsFunctions(L);
@@ -507,18 +607,20 @@ void xap::exportLuaFunctions(lua_State *L)
     // rendering API
     lua_register(L, "getAircraftPaint", luaGetAircraftPaint);
     lua_register(L, "getAircraftLiteMap", luaGetAircraftLiteMap);
+        
+    // register commands references
+    lua_newtable(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, "xapCommands");
 }
 
 
 // create new Lua state with custom allocator
 lua_State* xap::luaCreatorCallback()
 {
-	lua_State *lua = 0;
+    lua_State *lua = 0;
     XPLMDataRef use_custom_allocator = XPLMFindDataRef("sim/operation/prefs/misc/has_lua_alloc");
-    if (use_custom_allocator && XPLMGetDatai(use_custom_allocator))
-    {
-		
-	    struct lua_alloc_request_t r = { 0 };
+    if (use_custom_allocator && XPLMGetDatai(use_custom_allocator)) {
+        struct lua_alloc_request_t r = { 0 };
     	XPLMSendMessageToPlugin(XPLM_PLUGIN_XPLANE, ALLOC_OPEN,&r);
     	ud = r.ud;
     	printf("Got allocator: %p\n", ud);
@@ -527,9 +629,7 @@ lua_State* xap::luaCreatorCallback()
     	xplane_wants_allocator = true;
     } 
     else 
-    {
     	lua = luaL_newstate();
-    }
     return lua;
 }
 

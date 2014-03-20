@@ -1,5 +1,4 @@
-@rem set CXXFLAGS=/DSNAPSHOT=201111131 /DLOAD_ONLY_ACTIVATED /DLOAD_ONLY_SECURE
-set CXXFLAGS=/DSNAPSHOT=201111131 /DLOAD_ONLY_SECURE
+set CXXFLAGS=/DSNAPSHOT=201201031
 cd libavionics
 del *.o
 del *.obj
@@ -12,11 +11,11 @@ del *.obj
 del libaccgl.a
 del accgl.lib
 mingw32-make -f Makefile.vc
-cd ../alsasound
+cd ../alsound
 del *.o
 del *.obj
-del libalsasound.a
-del alsasound.lib
+del libalsound.a
+del alsound.lib
 mingw32-make -f Makefile.vc
 cd ../xap
 del *.o
