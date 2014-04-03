@@ -447,6 +447,35 @@ static int luaDrawIntricatelyTexturedRectangle(lua_State *L)
     return 0;
 }
 
+
+/// Lua wrapper for setClipArea
+static int luaSetClipArea(lua_State *L)
+{
+    Avionics *avionics = getAvionics(L);
+    SaslGraphicsCallbacks *graphics = avionics->getGraphics();
+    assert(graphics);
+
+    graphics->set_clip_area(graphics, lua_tonumber(L, 1), lua_tonumber(L, 2), 
+            lua_tonumber(L, 3), lua_tonumber(L, 4));
+
+    return 0;
+}
+
+
+/// Lua wrapper for resetClipArea
+static int luaResetClipArea(lua_State *L)
+{
+    Avionics *avionics = getAvionics(L);
+    SaslGraphicsCallbacks *graphics = avionics->getGraphics();
+    assert(graphics);
+
+    graphics->reset_clip_area(graphics);
+
+    return 0;
+}
+
+
+
 void xa::exportGraphToLua(Luna &lua)
 {
     lua_State *L = lua.getLua();
@@ -464,5 +493,7 @@ void xa::exportGraphToLua(Luna &lua)
     lua_register(L, "drawLine", luaDrawLine);
     lua_register(L, "drawText", luaDrawFont);
     lua_register(L, "drawTexturedRect", luaDrawIntricatelyTexturedRectangle);
+    lua_register(L, "setClipArea", luaSetClipArea);
+    lua_register(L, "resetClipArea", luaResetClipArea);
 }
 

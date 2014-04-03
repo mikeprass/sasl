@@ -63,6 +63,12 @@ static GenerateMipmap glGenerateMipmap = NULL;
 #endif
 
 
+// rectangle, for now used to define clip areas only
+struct Rect {
+    double x, y, width, height;
+};
+
+
 // graphics context
 struct OglCanvas
 {
@@ -137,6 +143,9 @@ struct OglCanvas
 
     // texture assigned to current fbo
     int currentFboTex;
+
+    // list of clipping areas
+    std::list<Rect> clipAreas;
 };
 
 
@@ -153,6 +162,7 @@ static void drawBegin(struct SaslGraphicsCallbacks *canvas)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_TEXTURE_2D);
+    glDisable(GL_STENCIL_TEST);
     c->currentTexture = -1;
 
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -179,6 +189,8 @@ static void drawBegin(struct SaslGraphicsCallbacks *canvas)
 
     c->transform.clear();
     c->transform.push_back(Matrix::identity());
+
+    c->clipAreas.clear();
 }
 
 
@@ -413,6 +425,23 @@ static void drawTexturedTriangle(struct SaslGraphicsCallbacks *canvas,
 }
 
 
+// draw rectangle in stencil buffer only
+static void drawStencilRect(OglCanvas *c, Rect &r)
+{
+    glColorMask(false, false, false, false);
+    drawTriangle((SaslGraphicsCallbacks*)c, 
+            r.x, r.y + r.height, 0, 0, 0, 0,
+            r.x + r.width, r.y + r.height, 0, 0, 0, 0,
+            r.x + r.width, r.y, 0, 0, 0, 0);
+    drawTriangle((SaslGraphicsCallbacks*)c, 
+            r.x, r.y + r.height, 0, 0, 0, 0,
+            r.x + r.width, r.y, 0, 0, 0, 0,
+            r.x, r.y, 0, 0, 0, 0);
+    glColorMask(true, true, true, true);
+    dumpBuffers(c);
+}
+
+
 // enable clipping to rectangle
 static void setClipArea(struct SaslGraphicsCallbacks *canvas, 
         double x, double y, double width, double height)
@@ -420,15 +449,26 @@ static void setClipArea(struct SaslGraphicsCallbacks *canvas,
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
 
-    // TODO: implement it.
-    // it will never work properly implemented by scissor test
-    // because of components may overlap its clipping areas.
-    // stencil test is right way for this job, but stencil buffer
-    // is not available in x-plane (at least wasn't when i tested it).
-    // lookd likr only way to go depth buffer hack.... if it is 
-    // avilable for panels
-
     dumpBuffers(c);
+
+    int oldLevel = c->clipAreas.size();
+
+    if (! oldLevel) {
+        glClear(GL_STENCIL_BUFFER_BIT);
+        glEnable(GL_STENCIL_TEST);
+    }
+
+    Rect r = { x, y, width, height };
+    c->clipAreas.push_back(r);
+    glEnable(GL_STENCIL_TEST);
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+    glStencilFunc(GL_EQUAL, oldLevel, 0xFFFFffff);
+
+    drawStencilRect(c, r);
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_EQUAL, oldLevel+1, 0xFFFFffff);
 }
 
 
@@ -441,6 +481,23 @@ static void resetClipArea(struct SaslGraphicsCallbacks *canvas)
     // TODO: implement it.  see notes in setClipArea
 
     dumpBuffers(c);
+
+    int curLevel = c->clipAreas.size();
+    if (! curLevel)
+        return;
+
+    Rect &r = c->clipAreas.back();
+    glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+    glStencilFunc(GL_EQUAL, curLevel, 0xFFFFffff);
+    drawStencilRect(c, r);
+    
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_EQUAL, curLevel-1, 0xFFFFffff);
+
+    c->clipAreas.pop_back();
+
+    if (c->clipAreas.empty())
+        glDisable(GL_STENCIL_TEST);
 }
 
 

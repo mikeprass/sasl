@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 #endif
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     bool showClickable = false;
 
