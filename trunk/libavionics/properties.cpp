@@ -452,7 +452,7 @@ std::string Properties::getProps(SaslPropRef prop, const std::string &dflt,
 #else
     char buf[sz + 1];
 #endif
-    propsCallbacks->get_prop_string(prop, buf, sz, err);
+    propsCallbacks->get_prop_string(prop, buf, sz+1, err);
     if (*err)
         return dflt;
     return buf;
@@ -585,7 +585,7 @@ void Properties::destroyFuncProp(FuncPropHandler *handler)
             i != funcProps.end(); i++)
     {
         FuncPropHandler *h = &(*i);
-        if ((h == handler)) {
+        if (h == handler) {
             lua.unRef(h->getter);
             lua.unRef(h->setter);
             funcProps.erase(i);

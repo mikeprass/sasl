@@ -897,13 +897,6 @@ PLUGIN_API int XPluginStart(char *outName, char *outSig, char *outDesc)
     return 1;
 }
 
-// clean up before die
-PLUGIN_API void	XPluginStop(void)
-{
-    saslgl_done_graphics(graphics);
-    graphics = NULL;
-}
-
 
 // disable plugin
 PLUGIN_API void XPluginDisable(void)
@@ -915,6 +908,18 @@ PLUGIN_API void XPluginDisable(void)
     XPLMDestroyWindow(fakeWindow);
     freeAvionics(false);
 }
+
+
+// clean up before die
+PLUGIN_API void	XPluginStop(void)
+{
+    if (! disabled)
+        XPluginDisable();
+
+    saslgl_done_graphics(graphics);
+    graphics = NULL;
+}
+
 
 
 // enable plugin

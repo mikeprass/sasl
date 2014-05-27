@@ -1,9 +1,10 @@
 set CXXFLAGS=/DSNAPSHOT=201405261
+set CXXFLAGS=/DNDEBUG=1
 cd libavionics
 del *.o
 del *.obj
 del libavionics.a
-del xavionics.lib
+del avionics.lib
 mingw32-make -f Makefile.vc
 cd ../libaccgl
 del *.o
@@ -21,9 +22,10 @@ cd ../xap
 del *.o
 del *.obj
 del win.xpl
-mingw32-make -f Makefile.vc
+mingw32-make -f Makefile.vc.64
 @rem cd ../slava
 @rem del *.o
 @rem del *.obj
 @rem del slava.exe
 @rem mingw32-make -f Makefile.vc
+cd ..

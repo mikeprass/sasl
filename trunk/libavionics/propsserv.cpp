@@ -23,8 +23,8 @@ ClientProp::ClientProp(int id, int type, const std::string &name,
 
 ClientProp::~ClientProp()
 {
-    if ((PROP_STRING == type) && lastValue.buf)
-        free(lastValue.buf);
+    if ((PROP_STRING == type) && lastValue.strValue.buf)
+        free(lastValue.strValue.buf);
 }
 
 
@@ -43,7 +43,8 @@ bool ClientProp::isChanged()
         case PROP_STRING:
             {
                 std::string s = properties->getProps(ref);
-                return (! lastValue.buf) || (strcmp(s.c_str(), lastValue.buf));
+                return (! lastValue.strValue.buf) || 
+                    (strcmp(s.c_str(), lastValue.strValue.buf));
             }
         default:
             return false;
@@ -73,13 +74,16 @@ void ClientProp::send(NetBuf &buffer)
             {
                 std::string s = properties->getProps(ref);
                 int len = s.length();
-                if ((! lastValue.buf) || (len + 1 > lastValue.maxBufSize)) {
-                    lastValue.maxBufSize = len + 20;
-                    if (lastValue.buf)
-                        free(lastValue.buf);
-                    lastValue.buf = (char*)malloc(lastValue.maxBufSize);
+                if ((! lastValue.strValue.buf) || 
+                        (len + 1 > lastValue.strValue.maxBufSize)) 
+                {
+                    lastValue.strValue.maxBufSize = len + 20;
+                    if (lastValue.strValue.buf)
+                        free(lastValue.strValue.buf);
+                    lastValue.strValue.buf = 
+                        (char*)malloc(lastValue.strValue.maxBufSize);
                 }
-                strcpy(lastValue.buf, s.c_str());
+                strcpy(lastValue.strValue.buf, s.c_str());
                 buffer.addUint16(len);
                 buffer.add((const unsigned char*)s.c_str(), len);
             }

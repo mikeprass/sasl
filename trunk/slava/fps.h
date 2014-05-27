@@ -24,8 +24,11 @@ class Fps
         /// sleep time neccessary to keep target FPS
         Uint32 delay;
 
+        /// Equals true if FPS must be printed on console
+        bool showFps;
+
     public:
-        Fps();
+        Fps(bool showFps);
 
     public:
         /// update FPS counter and delay next frame if needed

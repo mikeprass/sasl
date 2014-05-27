@@ -36,9 +36,10 @@ class PropValue
             int intValue;
             float floatValue;
             double doubleValue;
-
-            char *buf;
-            int maxBufSize;
+            struct {
+                char *buf;
+                int maxBufSize;
+            } strValue;
         } lastValue;
 
         /// Refernce to properties storage
@@ -47,9 +48,16 @@ class PropValue
         /// Do not update till this revision
         int notUpdateTill;
 
+        /// maximum size of property (for strings)
+        int maxSize;
+
+        /// creation command id (used for reconnects)
+        int command;
+
     public:
         /// Create new property value
-        PropValue(NetProps *props, int id, int type, const char *name);
+        PropValue(NetProps *props, int id, int type, const char *name,
+                int maxSize, int command);
         
         ~PropValue();
 
@@ -93,6 +101,15 @@ class PropValue
         /// Load property value from raw data
         void parse(const unsigned char *data, int revision);
 
+        /// Returns maximum size of string property
+        int getMaxSize() { return maxSize; };
+
+        /// Returns property creation command
+        int getCommand() { return command; };
+
+        /// reset all counters to initial state
+        void reset();
+
     private:
         /// Send set property value command to server
         int sendPropUpdate();
@@ -108,8 +125,13 @@ struct NetProps
     int propsToGo;
     uint16_t lastSetSerial;
     uint16_t curSetSerial;
+    std::string host;
+    int port;
+    std::string secret;
+    bool pendingResponse;
 
-    NetProps(Log &log): log(log), con(log) { };
+    NetProps(Log &log, const char *host, int port, const char *secret): 
+        log(log), con(log), host(host), port(port), secret(secret) { };
 
     ~NetProps() {
         for (std::vector<PropValue*>::iterator i = values.begin();
@@ -121,8 +143,10 @@ struct NetProps
 
 
 
-PropValue::PropValue(NetProps *props, int id, int type, const char *name): 
-    id(id), type(type), name(name), props(props)
+PropValue::PropValue(NetProps *props, int id, int type, const char *name,
+        int maxSize, int command): 
+    id(id), type(type), name(name), props(props), maxSize(maxSize), 
+    command(command)
 {
     memset(&lastValue, 0, sizeof(lastValue));
     notUpdateTill = 0;
@@ -131,8 +155,8 @@ PropValue::PropValue(NetProps *props, int id, int type, const char *name):
 
 PropValue::~PropValue()
 {
-    if ((PROP_STRING == type) && lastValue.buf)
-        free(lastValue.buf);
+    if ((PROP_STRING == type) && lastValue.strValue.buf)
+        free(lastValue.strValue.buf);
 }
 
 
@@ -146,7 +170,8 @@ int PropValue::getInt(int *err)
         case PROP_INT: return lastValue.intValue;
         case PROP_FLOAT: return (int)lastValue.floatValue;
         case PROP_DOUBLE: return (int)lastValue.doubleValue;
-        case PROP_STRING: return strToInt(lastValue.buf ? lastValue.buf : "0");
+        case PROP_STRING: return strToInt(lastValue.strValue.buf ? 
+                  lastValue.strValue.buf : "0");
     }
 
     if (err)
@@ -170,11 +195,11 @@ int PropValue::sendPropUpdate()
         case PROP_DOUBLE: buf.addDouble(lastValue.doubleValue);  return 0;
         case PROP_STRING: 
             int len = 0;
-            if (lastValue.buf)
-                len = strlen(lastValue.buf);
+            if (lastValue.strValue.buf)
+                len = strlen(lastValue.strValue.buf);
             buf.addUint16(len);
             if (len)
-                buf.add((unsigned char*)lastValue.buf, len);
+                buf.add((unsigned char*)lastValue.strValue.buf, len);
             return 0;
     }
     return -1;
@@ -205,7 +230,8 @@ float PropValue::getFloat(int *err)
             return lastValue.floatValue;
         case PROP_DOUBLE: 
             return (float)lastValue.doubleValue;
-        case PROP_STRING: return strToFloat(lastValue.buf ? lastValue.buf : "0");
+        case PROP_STRING: return strToFloat(lastValue.strValue.buf ? 
+                  lastValue.strValue.buf : "0");
     }
 
     if (err)
@@ -235,7 +261,8 @@ double PropValue::getDouble(int *err)
         case PROP_INT: return lastValue.intValue;
         case PROP_FLOAT: return lastValue.floatValue;
         case PROP_DOUBLE: return lastValue.doubleValue;
-        case PROP_STRING: return strToDouble(lastValue.buf ? lastValue.buf : "0");
+        case PROP_STRING: return strToDouble(
+                      lastValue.strValue.buf ? lastValue.strValue.buf : "0");
     }
 
     if (err)
@@ -280,17 +307,17 @@ int PropValue::getString(char *buf, int maxSize, int *err)
             strcpy(buf, s.c_str());
         return len;
     } else {
-        if (! lastValue.buf) {
+        if (! lastValue.strValue.buf) {
             if (buf && (0 < maxSize))
                 strcpy(buf, "");
             return 0;
         } else {
-            int len = strlen(lastValue.buf);
+            int len = strlen(lastValue.strValue.buf);
             if (maxSize < len + 1) {
                 if (err)
                     *err = 1;
             } else
-                strcpy(buf, lastValue.buf);
+                strcpy(buf, lastValue.strValue.buf);
             return len;
         }
     }
@@ -308,13 +335,16 @@ int PropValue::setString(const char *newValue)
         case PROP_DOUBLE: lastValue.doubleValue = strToDouble(newValue); break;
         case PROP_STRING: 
             int len = strlen(newValue);
-            if ((! lastValue.buf) || (len + 1 > lastValue.maxBufSize)) {
-                lastValue.maxBufSize = len + 20;
-                if (lastValue.buf)
-                    free(lastValue.buf);
-                lastValue.buf = (char*)malloc(lastValue.maxBufSize);
+            if ((! lastValue.strValue.buf) || 
+                    (len + 1 > lastValue.strValue.maxBufSize)) 
+            {
+                lastValue.strValue.maxBufSize = len + 20;
+                if (lastValue.strValue.buf)
+                    free(lastValue.strValue.buf);
+                lastValue.strValue.buf = 
+                    (char*)malloc(lastValue.strValue.maxBufSize);
             }
-            strcpy(lastValue.buf, newValue);
+            strcpy(lastValue.strValue.buf, newValue);
             break;
     }
     return sendPropUpdate();
@@ -343,23 +373,31 @@ void PropValue::parse(const unsigned char *data, int revision)
             break;
         case PROP_STRING: 
             int len = netToInt16(data);
-            if ((! lastValue.buf) || (len + 1 > lastValue.maxBufSize)) {
-                lastValue.maxBufSize = len + 20;
-                if (lastValue.buf)
-                    free(lastValue.buf);
-                lastValue.buf = (char*)malloc(lastValue.maxBufSize);
+            if ((! lastValue.strValue.buf) || 
+                    (len + 1 > lastValue.strValue.maxBufSize)) 
+            {
+                lastValue.strValue.maxBufSize = len + 20;
+                if (lastValue.strValue.buf)
+                    free(lastValue.strValue.buf);
+                lastValue.strValue.buf = 
+                    (char*)malloc(lastValue.strValue.maxBufSize);
             }
-            memcpy(lastValue.buf, data + 2, len);
-            lastValue.buf[len] = 0;
+            memcpy(lastValue.strValue.buf, data + 2, len);
+            lastValue.strValue.buf[len] = 0;
             break;
     }
 }
 
 
+void PropValue::reset()
+{
+    notUpdateTill = 0;
+}
+
 
 /// Returns reference to property
-static SaslPropRef createSaslPropRef(SaslProps props, const char *name, int type, 
-        int maxSize, int cmd)
+static SaslPropRef createSaslPropRef(SaslProps props, const char *name, 
+        int type, int maxSize, int cmd)
 {
     NetProps *p = (NetProps*)props;
     if (! p)
@@ -377,7 +415,7 @@ static SaslPropRef createSaslPropRef(SaslProps props, const char *name, int type
             return v;
     }
 
-    p->values.push_back(new PropValue(p, id, type, name));
+    p->values.push_back(new PropValue(p, id, type, name, maxSize, cmd));
     int len = strlen(name);
 
     NetBuf &buf = p->con.getSendBuffer();
@@ -538,6 +576,102 @@ static void doneProps(SaslProps props)
 }
 
 
+static int connect(NetProps *props)
+{
+    props->log.debug("connecting...");
+    int sock = establishConnection(props->host.c_str(), props->port);
+    if (1 > sock)
+        return -1;
+    props->con.setSocket(sock);
+    AsyncCon &con = props->con;
+
+    con.send((unsigned char*)"NP2\n", 4);
+    if (con.sendAll()) {
+        return -1;
+    }
+
+    if (con.recvData(20)) {
+        return -1;
+    }
+
+    NetBuf &buf = con.getRecvBuffer();
+    if (20 != buf.getFilled()) {
+        return -1;
+    }
+
+    md5_state_t md5;
+    md5_init(&md5);
+    md5_append(&md5, buf.getData(), 20);
+    md5_append(&md5, (md5_byte_t*)props->secret.c_str(), 
+            props->secret.length());
+    md5_byte_t digest[16];
+    md5_finish(&md5, digest);
+    buf.remove(20);
+    
+    con.send(digest, 16);
+    if (con.sendAll()) {
+        return -1;
+    }
+    
+    if (con.recvData(4) || (4 != buf.getFilled())) {
+        props->log.error("can't receive result");
+        return -1;
+    }
+
+    if (memcmp(buf.getData(), "PASS", 4)) {
+        props->log.error("we are not allowed");
+        return -1;
+    }
+    buf.remove(4);
+    props->log.debug("logged in!");
+
+    props->propsToGo = 0;
+    props->lastSetSerial = 0;
+    props->pendingResponse = false;
+
+    return 0;
+}
+
+
+static int resubscribe(NetProps *props)
+{
+    int pcnt = props->values.size();
+    for (int i = 0; i < pcnt; i++) {
+        PropValue *pv = props->values[i];
+    
+        NetBuf &buf = props->con.getSendBuffer();
+        buf.addUint8(pv->getCommand());
+        buf.addUint8(pv->getType());
+        buf.addUint8(pv->getId());
+        buf.addUint8(pv->getName().length());
+        buf.addUint16(pv->getMaxSize());
+        buf.add((unsigned char*)pv->getName().c_str(), pv->getName().length());
+
+        pv->reset();
+
+        if (props->con.update())
+            return -1;
+    }
+
+    return 0;
+}
+
+
+static int reconnect(NetProps *props)
+{
+    if (connect(props)) {
+        props->con.close();
+        return -1;
+    }
+    if (resubscribe(props)) {
+        props->con.close();
+        return -1;
+    }
+    props->con.getSendBuffer().addUint8(3);
+    return 0;
+}
+
+
 // do networked job
 static int updateProps(SaslProps props)
 {
@@ -545,48 +679,59 @@ static int updateProps(SaslProps props)
     if (! p)
         return -1;
 
-    if (p->con.update()) {
-        return -1;
-    }
-
-    NetBuf &buf = p->con.getRecvBuffer();
-    if ((! p->propsToGo) && (4 <= buf.getFilled())) {
-        int id = buf.getData()[0];
-        p->propsToGo = buf.getData()[1];
-        p->curSetSerial = netToInt16(buf.getData() + 2);
-        buf.remove(4);
-        if (4 != id) {
-            p->log.error("Invalid command %i\n", id);
+    while (true) {
+        if (p->con.update()) {
             p->con.close();
+            reconnect(p);
             return -1;
         }
-    }
-
-    while (p->propsToGo && (1 < buf.getFilled())) {
-        int propId = buf.getData()[0];
-        if ((! propId) || (propId > (int)p->values.size())) {
-            p->log.error("invalid property id %i\n", propId);
-            p->con.close();
-            return -1;
-        }
-        PropValue *v = p->values[propId - 1];
-        int sz = getPropTypeSize(v->getType());
-        if (buf.getFilled() < (unsigned)sz + 1)
+        
+        NetBuf &buf = p->con.getRecvBuffer();
+        if ((! p->propsToGo) && (4 > buf.getFilled()))
             break;
-        if (PROP_STRING == v->getType()) {
-            if (buf.getFilled() < 3)
+
+        if ((! p->propsToGo) && (4 <= buf.getFilled())) {
+            int id = buf.getData()[0];
+            p->propsToGo = buf.getData()[1];
+            p->curSetSerial = netToInt16(buf.getData() + 2);
+            buf.remove(4);
+            if (4 != id) {
+                p->log.error("Invalid command %i\n", id);
+                p->con.close();
+                return -1;
+            }
+        }
+
+        while (p->propsToGo && (1 < buf.getFilled())) {
+            int propId = buf.getData()[0];
+            if ((! propId) || (propId > (int)p->values.size())) {
+                p->log.error("invalid property id %i\n", propId);
+                p->con.close();
+                return -1;
+            }
+            PropValue *v = p->values[propId - 1];
+            int sz = getPropTypeSize(v->getType());
+            if (buf.getFilled() < (unsigned)sz + 1)
                 break;
-            sz += netToInt16(buf.getData() + 1);
+            if (PROP_STRING == v->getType()) {
+                if (buf.getFilled() < 3)
+                    break;
+                sz += netToInt16(buf.getData() + 1);
+            }
+            if (buf.getFilled() < (unsigned)sz + 1)
+                break;
+            v->parse(buf.getData() + 1, p->curSetSerial);
+            buf.remove(1 + sz);
+            p->propsToGo--;
         }
-        if (buf.getFilled() < (unsigned)sz + 1)
-            break;
-        v->parse(buf.getData() + 1, p->curSetSerial);
-        buf.remove(1 + sz);
-        p->propsToGo--;
+
+        if (! p->propsToGo)
+            p->pendingResponse = false;
     }
 
-    if (! p->propsToGo) {
+    if ((! p->propsToGo) && (! p->pendingResponse)) {
         p->con.getSendBuffer().addUint8(3);
+        p->pendingResponse = true;
     }
 
     return 0;
@@ -603,62 +748,12 @@ static SaslPropsCallbacks callbacks = { getSaslPropRef, freeSaslPropRef, createP
 int xa::connectToServer(SASL sasl, Log &log, const char *host, int port, 
         const char *secret)
 {
-    int sock = establishConnection(host, port);
-    log.debug("connecting...");
-    if (1 > sock)
-        return -1;
+    NetProps *np = new NetProps(log, host, port, secret);
 
-    NetProps *np = new NetProps(log);
-    np->con.setSocket(sock);
-    AsyncCon &con = np->con;
-
-    con.send((unsigned char*)"NP2\n", 4);
-    if (con.sendAll()) {
+    if (connect(np)) {
         delete np;
         return -1;
     }
-
-    if (con.recvData(20)) {
-        delete np;
-        return -1;
-    }
-
-    NetBuf &buf = con.getRecvBuffer();
-    if (20 != buf.getFilled()) {
-        delete np;
-        return -1;
-    }
-
-    md5_state_t md5;
-    md5_init(&md5);
-    md5_append(&md5, buf.getData(), 20);
-    md5_append(&md5, (md5_byte_t*)secret, strlen(secret));
-    md5_byte_t digest[16];
-    md5_finish(&md5, digest);
-    buf.remove(20);
-    
-    con.send(digest, 16);
-    if (con.sendAll()) {
-        delete np;
-        return -1;
-    }
-    
-    if (con.recvData(4) || (4 != buf.getFilled())) {
-        log.error("can't receive result");
-        delete np;
-        return -1;
-    }
-
-    if (memcmp(buf.getData(), "PASS", 4)) {
-        log.error("we are not allowed");
-        delete np;
-        return -1;
-    }
-    buf.remove(4);
-    log.debug("logged in!");
-
-    np->propsToGo = 0;
-    np->lastSetSerial = 0;
 
     sasl_set_props(sasl, &callbacks, np);
         

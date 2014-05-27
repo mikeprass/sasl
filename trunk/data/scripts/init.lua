@@ -673,7 +673,10 @@ function loadPanel(fileName, panelWidth, panelHeight, popupWidth, popupHeight)
     popups.position = createProperty { 0, 0, popupWidth, popupHeight }
     popups.size = { popupWidth, popupHeight }
 
-    panelsPositions = loadTableFromFile(panelDir .. '/panels.txt', 'positions')
+    local panelsFileName = panelDir .. '/panels.txt'
+    if isFileExists(panelsFileName) then
+        panelsPositions = loadTableFromFile(panelsFileName, 'positions')
+    end
 
     local c = loadComponent("panel", fileName)
     if not c then
@@ -1095,8 +1098,9 @@ function subpanel(tbl)
     end
     local c = createComponent(name, popups)
     set(c.position, tbl.position)
+    local pos = get(tbl.position)
     set(c.clip, tbl.clip)
-    c.size = { tbl.position[3], tbl.position[4] }
+    c.size = { pos[3], pos[4] }
     c.onMouseClick = function (comp, x, y, button, parentX, parentY)
         defaultOnMouseClick(comp, x, y, button, parentX, parentY)
         return true
@@ -1220,13 +1224,15 @@ end
 -- save positions of popup components
 function savePopupsPositions()
     local positions = { }
+    local empty = true
     for _k, c in pairs(popups.components) do
         if get(c.savePosition) and ('subpanel' ~= get(c.name)) then
             positions[get(c.name)] = get(c.position)
+            empty = false
         end
     end
 
-    if not #positions then
+    if empty then
         return
     end
 

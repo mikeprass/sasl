@@ -8,7 +8,7 @@ OBJECTS=$(SOURCES:.cpp=.o)
 all: $(TARGET)
 
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) $(GL_CXXFLAGS) -c $<
 	
 $(TARGET): $(OBJECTS)
 	$(AR) rs $(TARGET) $(OBJECTS)
