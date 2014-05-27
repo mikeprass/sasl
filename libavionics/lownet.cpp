@@ -15,6 +15,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/tcp.h>
 #else
 #include <winsock2.h>
 #endif
@@ -134,7 +135,9 @@ int xa::netToInt32(const unsigned char *data)
 
 float xa::netToFloat(const unsigned char *data)
 {
-    return *((float*)data);
+    float res;
+    memcpy(&res, data, sizeof(float));
+    return res;
 }
 
 
@@ -172,6 +175,18 @@ static int makeNonBlock(int sock)
 }
 
 
+// try to disable Nagle algorithm to make things more interactive
+static int disableNagle(int sock)
+{
+    int flag = 1;
+    return setsockopt(sock,      /* socket affected */
+                IPPROTO_TCP,     /* set option at TCP level */
+                TCP_NODELAY,     /* name of option */
+                (char *) &flag,  /* the cast is historical cruft */
+                sizeof(int));    /* length of option value */
+}
+
+
 // close socket
 static void closeSocket(int sock)
 {
@@ -203,6 +218,8 @@ int AsyncCon::setSocket(int socket)
     if (socket) {
         if (makeNonBlock(socket))
             return -1;
+        if (disableNagle(socket))
+            printf("Can't disable Nagle algorithm\n");
     }
     sock = socket;
     return 0;

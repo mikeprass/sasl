@@ -43,6 +43,7 @@ static void printHelp()
     printf("  --panel <file>       - path to panel lua file\n");
     printf("  --data <path>        - location of sasl data dir\n");
     printf("  --fps <limit>        - limit maximum FPS (use 0 for unlimited)\n");
+    printf("  --hide-mouse         - hide mouse cursor\n");
     printf("  --version            - print version number\n");
     printf("  --help               - print this help\n");
     exit(0);
@@ -53,7 +54,7 @@ slava::CmdLine::CmdLine(int argc, char *argv[]):
     netHost(""), netPort(45829), secret(""), 
     screenWidth(800), screenHeight(600),
     fullscreen(false), panel("panel.lua"), dataDir("./data"),
-    targetFps(60)
+    targetFps(60), hideMouse(false), showFps(false)
 {
     for (int i = 1; i < argc; i++) {
         if (! argv[i])
@@ -79,6 +80,10 @@ slava::CmdLine::CmdLine(int argc, char *argv[]):
             targetFps = strToInt(argv[++i]);
         else if ((! strcmp(argv[i], "--path")) && (i < argc - 1))
             paths.push_back(std::string(argv[++i]));
+        else if (! strcmp(argv[i], "--hide-mouse"))
+             hideMouse = true;
+        else if (! strcmp(argv[i], "--show-fps"))
+             showFps = true;
         else if (! strcmp(argv[i], "--version"))
             printVersion();
         else if (! strcmp(argv[i], "--help"))

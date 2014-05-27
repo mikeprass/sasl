@@ -5,13 +5,14 @@
 #define FPS_CALC_CYCLE 1000
 
 
-Fps::Fps()
+Fps::Fps(bool showFps)
 {
     countStartTime = 0;
     frames = 0;
     lastFps = 0;
     targetFps = 0;
     delay = 0;
+    this->showFps = showFps;
 }
 
 
@@ -41,9 +42,12 @@ void Fps::update()
         countStartTime = now;
         frames = 0;
         lastFps = fps;
+
+        if (showFps)
+            printf("fps: %.1f\n", fps);
     }
 
-    if (targetFps)
+    if (targetFps && delay)
         SDL_Delay(delay);
 }
 

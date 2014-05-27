@@ -21,10 +21,10 @@ server and send string 'NP2\n' without quotes, \n is carriedge
 return character.
 
 In response server will send the same characters back and random
-sequence of 16 bytes.  Client should calculate MD5 checksum over them
-and password, and send result to server.  If authentication will be
-OK, server will send word PASS or DENY otherwise and close connetion
-immediatelly.
+sequence of 16 bytes.  Client should calculate MD5 checksum over 'NP2\n',
+random bytes from server and password, and send result to server.  
+If authentication will be OK, server will send word PASS or DENY 
+otherwise and close connetion immediatelly.
 
 
 1. SUBSCRIPTION

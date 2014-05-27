@@ -14,7 +14,7 @@ ifneq ($(BUILD_64),yes)
 CXXFLAGS+=-m32
 LNFLAGS+=-m32
 ifneq ($(OS),Darwin)
-LNFLAGS+-L/usr/lib32
+LNFLAGS+=-L/usr/lib32
 endif
 endif
 
@@ -53,5 +53,15 @@ SOIL_LIBS+=-lSOIL32
 else
 SOIL_LIBS+=-lSOIL
 endif
+endif
+
+ifeq ($(EMBEDDED),yes)
+GL_CXXFLAGS=-DUSE_GLES1 -I/opt/vc/include
+GL_LNFLAGS=-L/opt/vc/lib
+GL_LIBS=-lGLESv1_CM
+else
+GL_CXXFLAGS=
+GL_LNFLAGS=
+GL_LIBS=-lGL
 endif
 

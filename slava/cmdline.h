@@ -42,6 +42,12 @@ class CmdLine
         /// paths to search components
         std::vector<std::string> paths;
 
+        // Equals true if mouse cursor must be hidden
+        bool hideMouse;
+
+        // equals true if FPS must be displayed
+        bool showFps;
+
     public:
         /// Parse command line
         CmdLine(int argc, char *argv[]);
@@ -77,6 +83,11 @@ class CmdLine
         /// returns additional search paths
         std::vector<std::string>& getPaths() { return paths; }
         
+        /// Returns true if mouse cursor must be hidden
+        bool isHideMouse() const { return hideMouse; }
+        
+        /// Returns true if FPS must be shown
+        bool isShowFps() const { return showFps; }
 };
 
 };

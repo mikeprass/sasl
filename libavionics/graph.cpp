@@ -1,5 +1,6 @@
 #include "graph.h"
 
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <assert.h>
 
@@ -370,6 +371,24 @@ static int luaDrawFont(lua_State *L)
 }
 
 
+/// Lua wrapper for getFontWidth
+static int luaGetFontWidth(lua_State *L)
+{
+    if ((! lua_islightuserdata(L, 1) || lua_isnil(L, 1)))
+        return 0;
+
+    Font *font = (Font*)lua_touserdata(L, 1);
+    if (! font)
+        return 0;
+
+    int width = getFontWidth(font, lua_tostring(L, 2));
+
+    lua_pushnumber(L, width);
+
+    return 1;
+}
+
+
 static void rotatePoint(double &x, double &y, double ox, double oy, 
         double centerX, double centerY, double angle, TexturePart *tex)
 {
@@ -401,6 +420,7 @@ static void drawIntricatelyTexturedRectangle(Avionics *avionics,
     double ty1 = ty;
     double tx2 = tx1 + tw;
     double ty2 = ty1 + th;
+    angle = -angle * M_PI / 180.0;
 
     double tcx = (tx2 + tx1) / 2;
     double tcy = (ty2 + ty1) / 2;
@@ -492,6 +512,7 @@ void xa::exportGraphToLua(Luna &lua)
     lua_register(L, "drawTriangle", luaDrawTriangle);
     lua_register(L, "drawLine", luaDrawLine);
     lua_register(L, "drawText", luaDrawFont);
+    lua_register(L, "getTextWidth", luaGetFontWidth);
     lua_register(L, "drawTexturedRect", luaDrawIntricatelyTexturedRectangle);
     lua_register(L, "setClipArea", luaSetClipArea);
     lua_register(L, "resetClipArea", luaResetClipArea);

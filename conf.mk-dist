@@ -19,6 +19,8 @@ LUAJIT ?= /usr/local
 # location of soil
 SOIL ?= /usr/local
 
+# set to yes to build embedded (raspberry pi) version of slava
+EMBEDDED ?= no
 
 # debug option
 DEBUG_CXXFLAGS ?= -ggdb

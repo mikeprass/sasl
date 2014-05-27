@@ -219,9 +219,6 @@ static int luaTarate(lua_State *L)
 }
 
 
-
-
-
 Luna::Luna(sasl_lua_creator_callback luaCreator,
                 sasl_lua_destroyer_callback luaDestroyer)
 {
@@ -229,7 +226,7 @@ Luna::Luna(sasl_lua_creator_callback luaCreator,
 
     if (luaCreator)
         lua = luaCreator();
-    else
+    else 
         lua = luaL_newstate();
 
     if (lua)
@@ -245,6 +242,7 @@ Luna::Luna(sasl_lua_creator_callback luaCreator,
         lua_newtable(lua);
         lua_setfield(lua, LUA_REGISTRYINDEX, "xavionics");
     } else {
+        printf("error creating Lua virtual machine\n");
         std::abort();
     }
 }

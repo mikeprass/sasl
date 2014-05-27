@@ -34,9 +34,10 @@ class ClientProp
             int intValue;
             float floatValue;
             double doubleValue;
-
-            char *buf;
-            int maxBufSize;
+            struct {
+                char *buf;
+                int maxBufSize;
+            } strValue;
         } lastValue;
 
         /// Properties subsystem

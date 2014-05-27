@@ -1,9 +1,5 @@
 #include "ogl.h"
 
-#ifdef __APPLE__
-#include "mac.h"
-#else
-
 #include <list>
 #include <map>
 #include <vector>
@@ -15,15 +11,10 @@
 #include "glheaders.h"
 #include "math2d.h"
 
-#include <GL/gl.h>
 
-#ifndef WINDOWS
-#include <GL/glx.h>
-#else
-#endif
+#ifndef USE_GLES1
 
-
-
+#ifndef __APPLE__
 // OpenGL functions
 typedef void (*GenFramebuffers)(GLsizei n, GLuint *buffers);
 static GenFramebuffers glGenFramebuffers = NULL;
@@ -60,6 +51,10 @@ static GenerateMipmap glGenerateMipmap = NULL;
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE                  0x812F
+#endif
+
+#endif
+
 #endif
 
 
@@ -156,8 +151,10 @@ static void drawBegin(struct SaslGraphicsCallbacks *canvas)
     OglCanvas *c = (OglCanvas*)canvas;
     assert(canvas);
 
+#ifndef USE_GLES1
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+#endif
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -259,8 +256,11 @@ static void drawEnd(struct SaslGraphicsCallbacks *canvas)
 
     dumpBuffers(c);
 
+#ifndef USE_GLES1
     glPopAttrib();
     glPopClientAttrib();
+#endif
+
 /*    printf("textures: %i (%i Kb) triangles: %i lines: %i  batches: %i\n", 
             c->textures, c->texturesSize / 1024, c->triangles, c->lines,
             c->batches);
@@ -313,6 +313,21 @@ static void setMode(OglCanvas *c, int mode)
 }
 
 
+#ifdef USE_GLES1
+
+// query texture size
+static void getTextureSize(const char *buffer, int length, int *width, 
+        int *height)
+{
+    unsigned char *data = SOIL_load_image_from_memory(
+            (const unsigned char*)buffer, length,
+            width, height, NULL, SOIL_LOAD_AUTO);
+    SOIL_free_image_data(data);
+}
+
+#endif
+
+
 /// load texture to memory.
 /// Returns texture ID or -1 on failure.  On success returns texture width
 //  and height in pixels
@@ -338,6 +353,13 @@ static int loadTexture(struct SaslGraphicsCallbacks *canvas,
     // because of SOIL issue
     setTexture(c, id);
 
+#ifdef USE_GLES1
+
+    if (width || height)
+        getTextureSize(buffer, length, width, height);
+
+#else
+
     if (width) {
         GLint w;
         glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
@@ -349,10 +371,18 @@ static int loadTexture(struct SaslGraphicsCallbacks *canvas,
         *height = h;
     }
 
-    c->textures++;
+#endif
 
     if (width && height)
         c->texturesSize += (*width) * (*height);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    c->textures++;
 
     return texId;
 }
@@ -563,6 +593,27 @@ static void rotateTransform(struct SaslGraphicsCallbacks *canvas,
 }
 
 
+#ifdef USE_GLES1
+
+static int findTexture(struct SaslGraphicsCallbacks *canvas, 
+        int width, int height, int *r, int *g, int *b, int *a)
+{
+    return -1;
+}
+
+static int setRenderTarget(struct SaslGraphicsCallbacks *canvas, 
+        int textureId)
+{
+    return -1;
+}
+
+static void recreateTexture(struct SaslGraphicsCallbacks *canvas, 
+        int textureId, int width, int height)
+{
+}
+
+#else
+
 // find sasl texture in memory by size and marker color
 // returns texture id or -1 if not found
 static int findTexture(struct SaslGraphicsCallbacks *canvas, 
@@ -643,7 +694,7 @@ static GLuint getFbo(OglCanvas *c, int textureId)
 // setup matrices
 static void prepareFbo(OglCanvas *c, int textureId, int width, int height)
 {
-    glClearColor(1.0, 0.0, 0.0, 1.0);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
     glViewport(0, 0, width, height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -746,6 +797,7 @@ static void recreateTexture(struct SaslGraphicsCallbacks *canvas,
         glBindTexture(GL_TEXTURE_2D, c->currentTexture);
 }
 
+#ifndef __APPLE__
 
 // returns address of OpenGL functions.  check EXT variants if normal not found
 typedef void (*Func)();
@@ -783,7 +835,9 @@ static bool initGlFunctions()
         glDeleteFramebuffers && glGenerateMipmap;
 }
 
+#endif // __APPLE__
 
+#endif
 
 
 // initializa canvas structure
@@ -813,7 +867,15 @@ struct SaslGraphicsCallbacks* saslgl_init_graphics()
     c->genTexNameCallback = NULL;   
     c->maxVertices = c->numVertices = 0;
     c->vertexBuffer = c->texBuffer = c->colorBuffer = NULL;
+#ifdef USE_GLES1
+    c->fboAvailable = false;
+#else
+#ifndef __APPLE__
     c->fboAvailable = initGlFunctions();
+#else
+    c->fboAvailable = true;
+#endif
+#endif
     c->triangles = c->lines = c->textures = c->texturesSize = 0;
     c->batches = c->batchTrans = c->batchNoTex = c->batchLines = 0;
     c->currentTexture = 0;
@@ -829,11 +891,13 @@ void saslgl_done_graphics(struct SaslGraphicsCallbacks *canvas)
 {
     OglCanvas *c = (OglCanvas*)canvas;
     if (c) {
+#ifndef USE_GLES1
         if (c->fboByTex.size()) {
             for (std::map<int, GLuint>::iterator i = c->fboByTex.begin();
                     i != c->fboByTex.end(); i++)
                 glDeleteFramebuffers(1, &(*i).second);
         }
+#endif
 
         free(c->vertexBuffer);
         free(c->texBuffer);
@@ -863,5 +927,4 @@ void saslgl_set_gen_tex_name_callback(struct SaslGraphicsCallbacks *canvas,
     c->genTexNameCallback = generator;
 }
 
-#endif
 
