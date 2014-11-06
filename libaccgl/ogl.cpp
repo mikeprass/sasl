@@ -491,6 +491,7 @@ static void setClipArea(struct SaslGraphicsCallbacks *canvas,
     Rect r = { x, y, width, height };
     c->clipAreas.push_back(r);
     glEnable(GL_STENCIL_TEST);
+    glStencilMask(255);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
     glStencilFunc(GL_EQUAL, oldLevel, 0xFFFFffff);

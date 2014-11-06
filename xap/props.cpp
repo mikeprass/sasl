@@ -89,6 +89,8 @@ typedef std::map<std::string, CustomProperty*> CustomPropsMap;
 /// List of functional properties
 typedef std::list<FuncProperty*> FuncPropsList;
 
+/// List of self-created functional properties
+typedef std::map<std::string, FuncProperty*> FuncPropsMap;
 
 
 /// delayed set property value command
@@ -141,7 +143,7 @@ struct XPlaneProps {
     CustomPropsMap customProps;
 
     /// user created callback properties
-    FuncPropsList funcProps;
+    FuncPropsMap funcProps;
 
     /// true if properties system was initialized
     bool initialized;
@@ -173,13 +175,8 @@ void xap::propsDone(SaslProps props)
 
     for (PropsList::iterator i = p->props.begin(); i != p->props.end(); ++i)
         delete *i;
-    
-    for (FuncPropsList::iterator i = p->funcProps.begin(); 
-            i != p->funcProps.end(); ++i)
-    {
-        XPLMUnregisterDataAccessor((*i)->ref);
-        delete *i;
-    }
+
+    funcPropsDone(props);
     
     for (CustomPropsMap::iterator i = p->customProps.begin(); 
             i != p->customProps.end(); ++i)
@@ -198,11 +195,11 @@ void xap::funcPropsDone(SaslProps props)
     if (! p)
         return;
 
-    for (FuncPropsList::iterator i = p->funcProps.begin(); 
+    for (FuncPropsMap::iterator i = p->funcProps.begin(); 
             i != p->funcProps.end(); ++i)
     {
-        XPLMUnregisterDataAccessor((*i)->ref);
-        delete *i;
+        XPLMUnregisterDataAccessor((*i).second->ref);
+        delete (*i).second;
     }
     p->funcProps.clear();
 }
@@ -759,6 +756,12 @@ static void registerProp(XPlaneProps *props, const char *name)
         if (i != props->customProps.end())
             XPLMSendMessageToPlugin(props->dataRefPlugin, MSG_ADD_DATAREF, 
                     (void*)((*i).first.c_str()));
+		else {
+			FuncPropsMap::iterator i = props->funcProps.find(name);
+			if (i != props->funcProps.end())
+				XPLMSendMessageToPlugin(props->dataRefPlugin, MSG_ADD_DATAREF, 
+						(void*)((*i).first.c_str()));
+		}
     }
 }
 
@@ -958,9 +961,10 @@ static int updateProps(SaslProps props)
         if (XPLM_NO_PLUGIN_ID != p->dataRefPlugin) {
             for (CustomPropsMap::iterator i = p->customProps.begin(); 
                     i != p->customProps.end(); i++) 
-            {
                 registerProp(p, (*i).first.c_str());
-            }
+            for (FuncPropsMap::iterator i = p->funcProps.begin(); 
+                    i != p->funcProps.end(); i++) 
+                registerProp(p, (*i).first.c_str());
         }
     }
 
@@ -1120,7 +1124,8 @@ static SaslPropRef createFuncProp(SaslProps props, const char *name,
             break;
     }
 
-    p->funcProps.push_back(funcProp);
+    p->funcProps[name] = funcProp;
+    registerProp(p, name);
 
     return getPropRef(props, name, type);
 }
